@@ -1,0 +1,442 @@
+{
+  "info": {
+    "name": "Ctrl-Pay API",
+    "description": "Complete REST API collection for Ctrl-Pay Payment Processing System",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Payment Management",
+      "item": [
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sourceAccount\": \"123456789012\",\n  \"destinationAccount\": \"210987654321\",\n  \"amount\": 1000.00,\n  \"currency\": \"USD\",\n  \"idempotencyKey\": \"payment-{{$timestamp}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"]
+            }
+          }
+        },
+        {
+          "name": "Get Payment by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}"]
+            }
+          }
+        },
+        {
+          "name": "List All Payments",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments?limit=10&offset=0",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                },
+                {
+                  "key": "offset",
+                  "value": "0"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filter by Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments?status=COMPLETED&limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "COMPLETED"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filter by Account",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments?account=123456789012&limit=25",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"],
+              "query": [
+                {
+                  "key": "account",
+                  "value": "123456789012"
+                },
+                {
+                  "key": "limit",
+                  "value": "25"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filter by Date Range",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments?date-from=2026-07-01T00:00:00&date-to=2026-07-31T23:59:59",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"],
+              "query": [
+                {
+                  "key": "date-from",
+                  "value": "2026-07-01T00:00:00"
+                },
+                {
+                  "key": "date-to",
+                  "value": "2026-07-31T23:59:59"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Filter by Failed Rule",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments?failed-rule=2&status=FAILED",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments"],
+              "query": [
+                {
+                  "key": "failed-rule",
+                  "value": "2"
+                },
+                {
+                  "key": "status",
+                  "value": "FAILED"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payment Lifecycle",
+      "item": [
+        {
+          "name": "Validate Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/validate",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}", "validate"]
+            }
+          }
+        },
+        {
+          "name": "Send Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}", "send"]
+            }
+          }
+        },
+        {
+          "name": "Complete Payment",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/complete",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}", "complete"]
+            }
+          }
+        },
+        {
+          "name": "Fail Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"errorCode\": \"MANUAL_FAILURE\",\n  \"errorMessage\": \"Manually marked as failed by operator\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/fail",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}", "fail"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Audit & History",
+      "item": [
+        {
+          "name": "Get Status History",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}", "history"]
+            }
+          }
+        },
+        {
+          "name": "Get Validation Results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/validations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}", "validations"]
+            }
+          }
+        },
+        {
+          "name": "Get Complete Audit Trail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/payments/{{paymentId}}/audit",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "payments", "{{paymentId}}", "audit"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin - Validation Rules",
+      "item": [
+        {
+          "name": "Create Validation Rule",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Custom Amount Limit\",\n  \"description\": \"Limit payments to 5000 USD\",\n  \"ruleType\": \"AMOUNT_RANGE\",\n  \"ruleDefinition\": {\"maxAmount\": 5000, \"minAmount\": 10},\n  \"severity\": \"HARD\",\n  \"orderOfExecution\": 10\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/validation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "validation-rules"]
+            }
+          }
+        },
+        {
+          "name": "List All Rules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/validation-rules",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "validation-rules"]
+            }
+          }
+        },
+        {
+          "name": "Get Rule Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/validation-rules/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "validation-rules", "1"]
+            }
+          }
+        },
+        {
+          "name": "Update Rule",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Updated Rule Name\",\n  \"description\": \"Updated description\",\n  \"ruleType\": \"AMOUNT_RANGE\",\n  \"ruleDefinition\": {\"maxAmount\": 10000},\n  \"severity\": \"SOFT\",\n  \"orderOfExecution\": 5\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/validation-rules/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "validation-rules", "1"]
+            }
+          }
+        },
+        {
+          "name": "Toggle Rule Active/Inactive",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/validation-rules/1/toggle",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "validation-rules", "1", "toggle"]
+            }
+          }
+        },
+        {
+          "name": "Test Rule (Dry Run)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"idempotencyKey\": \"test-payment-001\",\n  \"sourceAccount\": \"123456789012\",\n  \"destinationAccount\": \"210987654321\",\n  \"amount\": 5000.00,\n  \"currency\": \"USD\",\n  \"status\": \"CREATED\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/admin/validation-rules/1/test-dry-run",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "admin", "validation-rules", "1", "test-dry-run"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health & Monitoring",
+      "item": [
+        {
+          "name": "Health Check (Overall)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health"]
+            }
+          }
+        },
+        {
+          "name": "Liveness Probe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health/liveness",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health", "liveness"]
+            }
+          }
+        },
+        {
+          "name": "Readiness Probe",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/health/readiness",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "health", "readiness"]
+            }
+          }
+        },
+        {
+          "name": "Application Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/info",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "info"]
+            }
+          }
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/actuator/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["actuator", "metrics"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    },
+    {
+      "key": "paymentId",
+      "value": "1",
+      "type": "string"
+    }
+  ]
+}
+
