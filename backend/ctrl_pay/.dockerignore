@@ -1,0 +1,67 @@
+# Git files
+.git
+.gitignore
+.gitattributes
+
+# IDE files
+.idea
+.vscode
+*.iml
+*.iws
+*.ipr
+*.sublime-*
+
+# Maven
+target/
+.m2/
+*.jar.asc
+*.pom.asc
+
+# Build artifacts
+*.class
+*.log
+*.jar
+*.war
+*.zip
+*.tar.gz
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Documentation
+*.md
+docs/
+
+# Docker files (don't include in context)
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Node/frontend
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Test files
+src/test/
+test-results/
+coverage/
+
+# Gradle (if using)
+.gradle/
+build/
+
+# Other
+.project
+.classpath
+.settings/
+

@@ -1,0 +1,117 @@
+# Docker Compose Configuration for Ctrl-Pay Local Development
+# Start services: docker-compose up -d
+# Stop services: docker-compose down
+# View logs: docker-compose logs -f
+
+version: '3.9'
+
+services:
+  # ============================================
+  # MySQL 8.0 Database Service
+  # ============================================
+  mysql:
+    image: mysql:8.0.35-alpine
+    container_name: ctrl-pay-mysql
+    
+    # Port mapping: host:container
+    ports:
+      - "3306:3306"
+    
+    # Environment variables
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-admin123}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ctrl_pay}
+      MYSQL_ALLOW_EMPTY_PASSWORD: "false"
+      TZ: "UTC"
+    
+    # Volume for persistent data
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-admin123}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    
+    # Network
+    networks:
+      - ctrl-pay-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+  # ============================================
+  # Spring Boot Application Service
+  # ============================================
+  app:
+    build:
+      context: ./backend/ctrl_pay
+      dockerfile: Dockerfile
+    container_name: ctrl-pay-app
+    
+    # Port mapping: host:container
+    ports:
+      - "8080:8080"
+    
+    # Environment variables
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ctrl_pay?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-root}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-admin123}
+      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
+      JAVA_OPTS: -Xmx512m -Xms256m
+      TZ: "UTC"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/liveness"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+    
+    # Wait for MySQL to be ready
+    depends_on:
+      mysql:
+        condition: service_healthy
+    
+    # Network
+    networks:
+      - ctrl-pay-network
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '1'
+          memory: 512M
+
+# ============================================
+# Volumes (Persistent Storage)
+# ============================================
+volumes:
+  mysql_data:
+    driver: local
+
+# ============================================
+# Networks (Service Communication)
+# ============================================
+networks:
+  ctrl-pay-network:
+    driver: bridge
+
