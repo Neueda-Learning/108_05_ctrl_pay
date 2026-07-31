@@ -1,5 +1,7 @@
 package com.neueda.controller;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
@@ -119,19 +121,29 @@ public class PaymentController {
     /**
      * List payments with optional filtering and pagination.
      * 
-     * Request: GET /api/payments?status=COMPLETED&limit=10&offset=0
+     * Request: GET /api/payments?status=COMPLETED&account=123456789012&currency=USD&date-from=2026-07-01T00:00:00&date-to=2026-07-31T23:59:59&failed-rule=2&limit=10&offset=0
      * 
      * Query Parameters:
      * - status (optional): Filter by payment status (CREATED, VALIDATED, SENT, COMPLETED, FAILED)
-     * - limit (optional, default 10): Max results to return
+     * - account (optional): Filter by source or destination account (12-digit format)
+     * - currency (optional): Filter by currency (e.g., USD, EUR)
+     * - date-from (optional): Filter by created_at >= this timestamp (ISO 8601 format)
+     * - date-to (optional): Filter by created_at <= this timestamp (ISO 8601 format)
+     * - failed-rule (optional): Filter by failed validation rule ID (returns payments that failed this specific rule)
+     * - limit (optional, default 10): Max results to return (1-1000)
      * - offset (optional, default 0): Pagination offset
      * 
      * Response:
-     * - 200 OK: List of payments
+     * - 200 OK: List of payments matching all filters
      * - 400 Bad Request: Invalid query parameters
      * - 500 Internal Server Error: Server error
      * 
      * @param status optional status filter
+     * @param account optional account filter
+     * @param currency optional currency filter
+     * @param dateFrom optional date from filter (ISO 8601 string)
+     * @param dateTo optional date to filter (ISO 8601 string)
+     * @param failedRule optional failed rule ID filter
      * @param limit max results (default 10)
      * @param offset pagination offset (default 0)
      * @return 200 OK with list of payments
@@ -139,6 +151,11 @@ public class PaymentController {
     @GetMapping
     public ResponseEntity<List<PaymentResponse>> listPayments(
         @RequestParam(required = false) PaymentStatus status,
+        @RequestParam(required = false) String account,
+        @RequestParam(required = false) String currency,
+        @RequestParam(name = "date-from", required = false) String dateFrom,
+        @RequestParam(name = "date-to", required = false) String dateTo,
+        @RequestParam(name = "failed-rule", required = false) Long failedRule,
         @RequestParam(defaultValue = "10") int limit,
         @RequestParam(defaultValue = "0") int offset
     ) {
@@ -151,8 +168,37 @@ public class PaymentController {
                 throw new IllegalArgumentException("Offset must be >= 0");
             }
             
-            // Query payments
-            List<PaymentRecord> payments = paymentService.listPayments(status, limit, offset);
+            // Parse date parameters if provided
+            LocalDateTime dateFromParsed = null;
+            LocalDateTime dateToParsed = null;
+            
+            if (dateFrom != null && !dateFrom.isEmpty()) {
+                try {
+                    dateFromParsed = LocalDateTime.parse(dateFrom, DateTimeFormatter.ISO_DATE_TIME);
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Invalid date-from format. Use ISO 8601 (e.g., 2026-07-01T00:00:00)");
+                }
+            }
+            
+            if (dateTo != null && !dateTo.isEmpty()) {
+                try {
+                    dateToParsed = LocalDateTime.parse(dateTo, DateTimeFormatter.ISO_DATE_TIME);
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Invalid date-to format. Use ISO 8601 (e.g., 2026-07-31T23:59:59)");
+                }
+            }
+            
+            // Query payments with filters
+            List<PaymentRecord> payments = paymentService.listPaymentsFiltered(
+                status,
+                account,
+                currency,
+                dateFromParsed,
+                dateToParsed,
+                failedRule,
+                limit,
+                offset
+            );
             
             // Convert to response DTOs
             List<PaymentResponse> responses = payments.stream()

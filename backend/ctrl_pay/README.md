@@ -218,6 +218,32 @@ POST   /api/payments/{id}/complete      Mark payment complete
 POST   /api/payments/{id}/fail          Mark payment failed
 ```
 
+### Advanced Filtering & Search (User Story 3.7)
+
+The GET `/api/payments` endpoint supports powerful filtering for compliance and analytics:
+
+```
+GET /api/payments?status=COMPLETED&currency=USD&date-from=2026-07-01T00:00:00&date-to=2026-07-31T23:59:59&failed-rule=2&account=123456789012&limit=50&offset=0
+```
+
+**Query Parameters:**
+- `status` — Filter by payment status (CREATED, VALIDATED, SENT, COMPLETED, FAILED)
+- `currency` — Filter by ISO 4217 currency code (USD, EUR, GBP, etc.)
+- `account` — Filter by source or destination account (12-digit format)
+- `date-from` — Filter by created_at >= (ISO 8601 format, e.g., 2026-07-01T00:00:00)
+- `date-to` — Filter by created_at <= (ISO 8601 format)
+- `failed-rule` — Filter by failed validation rule ID
+- `limit` — Max results (default 10, max 1000)
+- `offset` — Pagination offset (default 0)
+
+**Use Cases:**
+- Daily reconciliation: `?date-from=2026-07-31T00:00:00&date-to=2026-07-31T23:59:59`
+- Fraud investigation: `?account=123456789012` or `?failed-rule=2`
+- Currency reporting: `?currency=USD&status=COMPLETED`
+- Audit trails: `?date-from=2026-07-01T00:00:00`
+
+See [FILTERING.md](docs/FILTERING.md) for complete documentation with examples.
+
 ### Audit Endpoints (Phase 3)
 
 ```

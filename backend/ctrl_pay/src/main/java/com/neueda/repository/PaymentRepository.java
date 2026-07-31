@@ -1,5 +1,6 @@
 package com.neueda.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -61,6 +62,31 @@ public interface PaymentRepository {
      * @return list of all payment records
      */
     List<PaymentRecord> findAll();
+    
+    /**
+     * Retrieve all payments with advanced filtering and pagination.
+     * Supports multiple filter criteria: status, account, currency, date range, failed rule.
+     * 
+     * @param status filter by payment status (null = no filter)
+     * @param account filter by source or destination account (null = no filter)
+     * @param currency filter by currency (null = no filter)
+     * @param dateFrom filter by created_at >= dateFrom (null = no filter)
+     * @param dateTo filter by created_at <= dateTo (null = no filter)
+     * @param failedRuleId filter by failed validation rule ID (null = no filter)
+     * @param limit maximum number of results
+     * @param offset number of results to skip
+     * @return list of payment records matching all provided filters
+     */
+    List<PaymentRecord> findAllFiltered(
+        PaymentStatus status,
+        String account,
+        String currency,
+        LocalDateTime dateFrom,
+        LocalDateTime dateTo,
+        Long failedRuleId,
+        int limit,
+        int offset
+    );
     
     /**
      * Count total number of payments.

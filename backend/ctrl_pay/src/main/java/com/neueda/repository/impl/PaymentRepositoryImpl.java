@@ -3,7 +3,9 @@ package com.neueda.repository.impl;
 import java.math.BigDecimal;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -132,6 +134,77 @@ public class PaymentRepositoryImpl implements PaymentRepository {
             limit,
             offset
         );
+    }
+
+    @Override
+    public List<PaymentRecord> findAllFiltered(
+        PaymentStatus status,
+        String account,
+        String currency,
+        LocalDateTime dateFrom,
+        LocalDateTime dateTo,
+        Long failedRuleId,
+        int limit,
+        int offset
+    ) {
+        // Build dynamic SQL query with filters
+        StringBuilder sql = new StringBuilder(
+            "SELECT DISTINCT p.id, p.idempotency_key, p.source_account, p.destination_account, p.amount, p.currency, p.status, p.error_code, p.error_message, p.created_at, p.updated_at "
+        );
+        sql.append("FROM payments p ");
+        
+        // Join validation_results if filtering by failed rule
+        if (failedRuleId != null) {
+            sql.append("JOIN validation_results vr ON p.id = vr.payment_id ");
+        }
+        
+        // Build WHERE clause
+        List<Object> params = new ArrayList<>();
+        sql.append("WHERE 1=1 ");
+        
+        // Status filter
+        if (status != null) {
+            sql.append("AND p.status = ? ");
+            params.add(status.name());
+        }
+        
+        // Account filter (source or destination)
+        if (account != null) {
+            sql.append("AND (p.source_account = ? OR p.destination_account = ?) ");
+            params.add(account);
+            params.add(account);
+        }
+        
+        // Currency filter
+        if (currency != null) {
+            sql.append("AND p.currency = ? ");
+            params.add(currency);
+        }
+        
+        // Date range filters
+        if (dateFrom != null) {
+            sql.append("AND p.created_at >= ? ");
+            params.add(Timestamp.valueOf(dateFrom));
+        }
+        if (dateTo != null) {
+            sql.append("AND p.created_at <= ? ");
+            params.add(Timestamp.valueOf(dateTo));
+        }
+        
+        // Failed rule filter
+        if (failedRuleId != null) {
+            sql.append("AND vr.validation_rule_id = ? AND vr.passed = false ");
+            params.add(failedRuleId);
+        }
+        
+        // Order and pagination
+        sql.append("ORDER BY p.created_at DESC ");
+        sql.append("LIMIT ? OFFSET ? ");
+        params.add(limit);
+        params.add(offset);
+        
+        // Execute query
+        return jdbcTemplate.query(sql.toString(), ROW_MAPPER, params.toArray());
     }
 
     @Override
