@@ -21,9 +21,13 @@ public class MockSufficientFundsRule implements ValidationRule {
         long startTime = System.currentTimeMillis();
 
         try {
-            // Extract failure rate (0.0 to 1.0)
-            double failureRate = ruleDefinition.get("failure_rate").asDouble(0.1);
-            String errorMessage = ruleDefinition.get("message").asText("Insufficient funds in source account");
+            // Extract failure rate with null safety (0.0 to 1.0)
+            JsonNode failureRateNode = ruleDefinition.get("failure_rate");
+            double failureRate = (failureRateNode != null) ? failureRateNode.asDouble(0.1) : 0.1;
+            
+            JsonNode messageNode = ruleDefinition.get("message");
+            String errorMessage = (messageNode != null) ? messageNode.asText("Insufficient funds in source account") 
+                                                        : "Insufficient funds in source account";
 
             // Simulate: random failure based on failure_rate
             // In real implementation, would query actual account balance

@@ -19,16 +19,31 @@ public class CurrencyWhitelistRule implements ValidationRule {
         long startTime = System.currentTimeMillis();
         
         try {
-            // Extract allowed currencies from JSON array
+            // Extract allowed currencies from JSON array - with null safety
             Set<String> allowedCurrencies = new HashSet<>();
             JsonNode currenciesNode = ruleDefinition.get("allowed_currencies");
-            if (currenciesNode.isArray()) {
+            
+            // Check if currenciesNode exists and is an array
+            if (currenciesNode != null && currenciesNode.isArray()) {
                 for (JsonNode currency : currenciesNode) {
                     allowedCurrencies.add(currency.asText());
                 }
+            } else if (currenciesNode == null) {
+                // Missing allowed_currencies configuration
+                long executionTime = System.currentTimeMillis() - startTime;
+                return ValidationRuleResult.failure("RULE_CONFIG_ERROR", 
+                    "Rule configuration missing 'allowed_currencies' field", executionTime);
             }
             
-            String errorMessage = ruleDefinition.get("message").asText("Currency is not supported");
+            JsonNode messageNode = ruleDefinition.get("message");
+            String errorMessage = (messageNode != null) ? messageNode.asText("Currency is not supported") 
+                                                        : "Currency is not supported";
+            
+            // Check if payment currency is in allowlist
+            if (payment.currency() == null) {
+                long executionTime = System.currentTimeMillis() - startTime;
+                return ValidationRuleResult.failure("INVALID_CURRENCY", "Payment currency is null", executionTime);
+            }
             
             if (!allowedCurrencies.contains(payment.currency())) {
                 long executionTime = System.currentTimeMillis() - startTime;
@@ -40,7 +55,8 @@ public class CurrencyWhitelistRule implements ValidationRule {
             
         } catch (Exception e) {
             long executionTime = System.currentTimeMillis() - startTime;
-            return ValidationRuleResult.failure("VALIDATION_ERROR", "Error executing CURRENCY_WHITELIST rule: " + e.getMessage(), executionTime);
+            return ValidationRuleResult.failure("VALIDATION_ERROR", 
+                "Error executing CURRENCY_WHITELIST rule: " + e.getMessage(), executionTime);
         }
     }
 }

@@ -13,6 +13,7 @@ import {
   Stepper,
   Step,
   StepLabel,
+  MenuItem,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
 import { paymentAPI } from '../services/api';
@@ -58,11 +59,11 @@ function CreatePayment() {
       });
 
       setPaymentId(response.data.id);
-      toast.success('Payment created successfully!');
+      toast.success('Payment created successfully! Redirecting to processing...');
 
       setTimeout(() => {
-        navigate(`/payments/${response.data.id}`);
-      }, 2000);
+        navigate(`/payment/process/${response.data.id}`);
+      }, 1500);
     } catch (error) {
       console.error('Error creating payment:', error);
       toast.error(error.response?.data?.message || 'Error creating payment');
@@ -176,9 +177,9 @@ function CreatePayment() {
                               fullWidth
                             >
                               {['USD', 'EUR', 'GBP', 'JPY', 'AUD'].map((option) => (
-                                <option key={option} value={option}>
+                                <MenuItem key={option} value={option}>
                                   {option}
-                                </option>
+                                </MenuItem>
                               ))}
                             </TextField>
                           )}
@@ -309,4 +310,3 @@ function CreatePayment() {
 }
 
 export default CreatePayment;
-

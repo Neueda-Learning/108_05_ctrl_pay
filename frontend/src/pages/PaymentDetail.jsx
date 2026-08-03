@@ -10,13 +10,7 @@ import {
   Button,
   Chip,
   Divider,
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineConnector,
-  TimelineContent,
-  TimelineDot,
-  TimelineOppositeContent,
+  Stack,
 } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { paymentAPI } from '../services/api';
@@ -156,30 +150,54 @@ function PaymentDetail() {
                 Status History
               </Typography>
               {history && history.length > 0 ? (
-                <Timeline position="alternate">
+                <Stack spacing={2}>
                   {history.map((item, idx) => (
-                    <TimelineItem key={idx}>
-                      <TimelineOppositeContent color="textSecondary">
-                        {format(new Date(item.timestamp), 'MMM dd, HH:mm')}
-                      </TimelineOppositeContent>
-                      <TimelineSeparator>
-                        <TimelineDot
+                    <Box
+                      key={idx}
+                      sx={{
+                        display: 'flex',
+                        gap: 2,
+                        pb: idx < history.length - 1 ? 2 : 0,
+                        borderBottom: idx < history.length - 1 ? '1px solid #e0e0e0' : 'none',
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <Box
                           sx={{
-                            bgcolor: item.newStatus === 'COMPLETED' ? 'success.main' : 'info.main',
+                            width: 40,
+                            height: 40,
+                            borderRadius: '50%',
+                            backgroundColor: item.newStatus === 'COMPLETED' ? 'success.lighter' : 'info.lighter',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: item.newStatus === 'COMPLETED' ? 'success.main' : 'info.main',
                           }}
                         >
-                          <CheckCircle />
-                        </TimelineDot>
-                        {idx < history.length - 1 && <TimelineConnector />}
-                      </TimelineSeparator>
-                      <TimelineContent>
+                          <CheckCircle sx={{ fontSize: 24 }} />
+                        </Box>
+                        {idx < history.length - 1 && (
+                          <Box
+                            sx={{
+                              width: 2,
+                              height: 20,
+                              backgroundColor: '#e0e0e0',
+                              mt: 1,
+                            }}
+                          />
+                        )}
+                      </Box>
+                      <Box sx={{ pt: 0.5, flex: 1 }}>
                         <Typography variant="body2" sx={{ fontWeight: 600 }}>
                           {item.oldStatus} → {item.newStatus}
                         </Typography>
-                      </TimelineContent>
-                    </TimelineItem>
+                        <Typography variant="caption" color="textSecondary">
+                          {format(new Date(item.timestamp), 'MMM dd, yyyy HH:mm:ss')}
+                        </Typography>
+                      </Box>
+                    </Box>
                   ))}
-                </Timeline>
+                </Stack>
               ) : (
                 <Typography variant="body2" color="textSecondary">
                   No status history available

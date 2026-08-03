@@ -20,9 +20,9 @@ CREATE TABLE IF NOT EXISTS payments (
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
 
     -- Constraints: Business rules enforced at database level
-    CONSTRAINT chk_different_accounts CHECK (source_account != destination_account) COMMENT 'Source and destination must be different',
-    CONSTRAINT chk_valid_amount CHECK (amount > 0 AND amount <= 1000000.00) COMMENT 'Amount must be between $0.01 and $1,000,000',
-    CONSTRAINT chk_valid_currency CHECK (currency REGEXP '^[A-Z]{3}$') COMMENT 'Currency must be 3 uppercase letters (ISO 4217)',
+    CONSTRAINT chk_different_accounts CHECK (source_account != destination_account) ,
+    CONSTRAINT chk_valid_amount CHECK (amount > 0 AND amount <= 1000000.00) ,
+    CONSTRAINT chk_valid_currency CHECK (currency REGEXP '^[A-Z]{3}$') ,
 
     -- Indexes for query optimization
     INDEX idx_status (status) COMMENT 'Filter by payment status',
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS payment_status_history (
     triggered_by VARCHAR(50) NOT NULL DEFAULT 'SYSTEM' COMMENT 'Who/what triggered this change: SYSTEM, USER, RETRY',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Transition timestamp',
 
-    CONSTRAINT fk_payment_id FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE COMMENT 'Link to parent payment',
+    CONSTRAINT fk_payment_id FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE ,
 
     -- Indexes for audit trail retrieval
     INDEX idx_payment_id_created (payment_id, created_at) COMMENT 'Efficiently retrieve history for a payment'
@@ -91,8 +91,8 @@ CREATE TABLE IF NOT EXISTS validation_results (
     execution_time_ms INT NOT NULL DEFAULT 0 COMMENT 'Time taken to execute this rule in milliseconds',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Validation execution timestamp',
 
-    CONSTRAINT fk_validation_payment_id FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE COMMENT 'Link to payment',
-    CONSTRAINT fk_validation_rule_id FOREIGN KEY (validation_rule_id) REFERENCES validation_rules(id) COMMENT 'Link to rule definition',
+    CONSTRAINT fk_validation_payment_id FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE ,
+    CONSTRAINT fk_validation_rule_id FOREIGN KEY (validation_rule_id) REFERENCES validation_rules(id) ,
 
     -- Indexes for validation audit retrieval
     INDEX idx_payment_id_created (payment_id, created_at) COMMENT 'Retrieve validation history for payment',
@@ -114,7 +114,7 @@ CREATE TABLE IF NOT EXISTS payment_retry_attempts (
     execution_time_ms INT NOT NULL DEFAULT 0 COMMENT 'Time taken for retry operation in milliseconds',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Retry attempt timestamp',
 
-    CONSTRAINT fk_retry_payment_id FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE COMMENT 'Link to payment',
+    CONSTRAINT fk_retry_payment_id FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE,
 
     -- Indexes for retry tracking
     INDEX idx_payment_id_attempt (payment_id, attempt_number) COMMENT 'Track retry history for a payment'

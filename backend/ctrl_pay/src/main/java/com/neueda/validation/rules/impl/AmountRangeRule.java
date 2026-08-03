@@ -18,9 +18,27 @@ public class AmountRangeRule implements ValidationRule {
         long startTime = System.currentTimeMillis();
 
         try {
-            BigDecimal min = new BigDecimal(ruleDefinition.get("min").asText());
-            BigDecimal max = new BigDecimal(ruleDefinition.get("max").asText());
-            String errorMessage = ruleDefinition.get("message").asText("Amount out of range");
+            // Extract min/max with null safety
+            JsonNode minNode = ruleDefinition.get("min");
+            JsonNode maxNode = ruleDefinition.get("max");
+            
+            if (minNode == null || maxNode == null) {
+                long executionTime = System.currentTimeMillis() - startTime;
+                return ValidationRuleResult.failure("RULE_CONFIG_ERROR", 
+                    "Rule configuration missing 'min' or 'max' field", executionTime);
+            }
+            
+            BigDecimal min = new BigDecimal(minNode.asText());
+            BigDecimal max = new BigDecimal(maxNode.asText());
+            
+            JsonNode messageNode = ruleDefinition.get("message");
+            String errorMessage = (messageNode != null) ? messageNode.asText("Amount out of range") 
+                                                        : "Amount out of range";
+
+            if (payment.amount() == null) {
+                long executionTime = System.currentTimeMillis() - startTime;
+                return ValidationRuleResult.failure("INVALID_AMOUNT", "Payment amount is null", executionTime);
+            }
 
             if (payment.amount().compareTo(min) < 0 || payment.amount().compareTo(max) > 0) {
                 long executionTime = System.currentTimeMillis() - startTime;

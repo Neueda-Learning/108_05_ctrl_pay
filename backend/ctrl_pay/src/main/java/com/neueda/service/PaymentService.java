@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.neueda.domain.PaymentRecord;
@@ -126,6 +127,10 @@ public class PaymentService {
             paymentStatusHistoryRepository.save(
                 PaymentStatusHistoryRecord.createInitial(savedPayment.id())
             );
+            
+            // 9. Auto-transition to VALIDATED (no manual step required)
+            PaymentRecord validatedPayment = transitionPayment(savedPayment.id(), PaymentStatus.VALIDATED);
+            return validatedPayment;
         } else {
             // Status is FAILED (due to validation)
             paymentStatusHistoryRepository.save(
@@ -137,9 +142,8 @@ public class PaymentService {
                     "SYSTEM"
                 )
             );
+            return savedPayment;
         }
-        
-        return savedPayment;
     }
     
     /**
@@ -314,5 +318,82 @@ public class PaymentService {
     public long countPaymentsByStatus(PaymentStatus status) {
         return paymentRepository.countByStatus(status);
     }
+    
+    /**
+     * Process a VALIDATED payment to SENT status in its own transaction.
+     * 
+     * CRITICAL: This method uses @Transactional(propagation = Propagation.REQUIRES_NEW)
+     * which ensures this payment is processed in a NEW, independent transaction.
+     * 
+     * Benefits:
+     * - If this method succeeds, changes are committed immediately
+     * - If this method fails, ONLY this transaction is rolled back
+     * - Other payments processed by the scheduler are NOT affected
+     * - Scheduler can continue processing other payments even if this one fails
+     * 
+     * This is essential for batch processing scenarios where one failure should not
+     * cascade to previously processed items.
+     * 
+     * @param paymentId payment ID to process
+     * @return updated payment record with SENT status
+     * @throws IllegalArgumentException if payment not found
+     * @throws IllegalStateException if transition not allowed
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public PaymentRecord processValidatedPaymentToSent(Long paymentId) {
+        // Retrieve payment within this new transaction
+        PaymentRecord payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        
+        // Validate and transition to SENT
+        return transitionPayment(paymentId, PaymentStatus.SENT);
+    }
+    
+    /**
+     * Process a SENT payment to COMPLETED status in its own transaction.
+     * 
+     * CRITICAL: This method uses @Transactional(propagation = Propagation.REQUIRES_NEW)
+     * which ensures this payment is processed in a NEW, independent transaction.
+     * 
+     * See processValidatedPaymentToSent() for detailed explanation of benefits.
+     * 
+     * @param paymentId payment ID to process
+     * @return updated payment record with COMPLETED status
+     * @throws IllegalArgumentException if payment not found
+     * @throws IllegalStateException if transition not allowed
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public PaymentRecord processSentPaymentToCompletion(Long paymentId) {
+        // Retrieve payment within this new transaction
+        PaymentRecord payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        
+        // Validate and transition to COMPLETED
+        return transitionPayment(paymentId, PaymentStatus.COMPLETED);
+    }
+    
+    /**
+     * Mark a SENT payment as FAILED in its own transaction.
+     * 
+     * CRITICAL: This method uses @Transactional(propagation = Propagation.REQUIRES_NEW)
+     * which ensures this payment is processed in a NEW, independent transaction.
+     * 
+     * See processValidatedPaymentToSent() for detailed explanation of benefits.
+     * 
+     * @param paymentId payment ID to fail
+     * @param errorCode error code
+     * @param errorMessage error message
+     * @return updated payment record with FAILED status
+     * @throws IllegalArgumentException if payment not found
+     * @throws IllegalStateException if payment is already in terminal state
+     */
+     @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public PaymentRecord processSentPaymentFailure(Long paymentId, String errorCode, String errorMessage) {
+        // Retrieve payment within this new transaction
+        PaymentRecord payment = paymentRepository.findById(paymentId)
+            .orElseThrow(() -> new IllegalArgumentException("Payment not found: " + paymentId));
+        
+        // Mark as failed
+        return failPayment(paymentId, errorCode, errorMessage);
+    }
 }
-

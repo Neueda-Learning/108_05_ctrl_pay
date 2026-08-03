@@ -32,11 +32,11 @@ export const paymentAPI = {
   // Fail payment
   failPayment: (id, data) => apiClient.post(`/payments/${id}/fail`, data),
 
-  // Get payment history
-  getPaymentHistory: (id) => apiClient.get(`/payments/${id}/history`),
+  // Get payment status history (audit trail)
+  getPaymentHistory: (id) => apiClient.get(`/payments/${id}/audit/status-history`),
 
   // Get payment validations
-  getPaymentValidations: (id) => apiClient.get(`/payments/${id}/validations`),
+  getPaymentValidations: (id) => apiClient.get(`/payments/${id}/audit/validations`),
 
   // Get complete audit trail
   getPaymentAudit: (id) => apiClient.get(`/payments/${id}/audit`),
@@ -91,4 +91,3 @@ export const healthAPI = {
 };
 
 export default apiClient;
-

@@ -18,8 +18,18 @@ public class AccountFormatRule implements ValidationRule {
         long startTime = System.currentTimeMillis();
         
         try {
-            String pattern = ruleDefinition.get("pattern").asText("^[0-9]{12}$");
-            String errorMessage = ruleDefinition.get("message").asText("Invalid account format");
+            JsonNode patternNode = ruleDefinition.get("pattern");
+            String pattern = (patternNode != null) ? patternNode.asText("^[0-9]{12}$") : "^[0-9]{12}$";
+            
+            JsonNode messageNode = ruleDefinition.get("message");
+            String errorMessage = (messageNode != null) ? messageNode.asText("Invalid account format") 
+                                                        : "Invalid account format";
+            
+            // Check for null account values
+            if (payment.sourceAccount() == null || payment.destinationAccount() == null) {
+                long executionTime = System.currentTimeMillis() - startTime;
+                return ValidationRuleResult.failure("INVALID_ACCOUNT", "Source or destination account is null", executionTime);
+            }
             
             Pattern regex = Pattern.compile(pattern);
             

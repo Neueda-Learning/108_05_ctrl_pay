@@ -16,7 +16,15 @@ public class AccountDifferenceRule implements ValidationRule {
         long startTime = System.currentTimeMillis();
         
         try {
-            String errorMessage = ruleDefinition.get("message").asText("Source and destination accounts must be different");
+            JsonNode messageNode = ruleDefinition.get("message");
+            String errorMessage = (messageNode != null) ? messageNode.asText("Source and destination accounts must be different") 
+                                                        : "Source and destination accounts must be different";
+            
+            // Check for null account values
+            if (payment.sourceAccount() == null || payment.destinationAccount() == null) {
+                long executionTime = System.currentTimeMillis() - startTime;
+                return ValidationRuleResult.failure("INVALID_ACCOUNT", "Source or destination account is null", executionTime);
+            }
             
             if (payment.sourceAccount().equals(payment.destinationAccount())) {
                 long executionTime = System.currentTimeMillis() - startTime;
