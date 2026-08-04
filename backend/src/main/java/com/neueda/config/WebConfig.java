@@ -1,6 +1,8 @@
 package com.neueda.config;
 
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -22,6 +24,15 @@ public class WebConfig implements WebMvcConfigurer {
                 .allowedHeaders("*")
                 .allowCredentials(true)
                 .maxAge(3600);
+    }
+    
+    /**
+     * Configure RestTemplate for making HTTP calls to external APIs.
+     * Used by CurrencyService to fetch currency data from external API.
+     */
+    @Bean
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }
 

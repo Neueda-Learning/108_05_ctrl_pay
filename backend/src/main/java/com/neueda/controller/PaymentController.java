@@ -19,9 +19,11 @@ import com.neueda.domain.PaymentStatus;
 import com.neueda.dto.CreatePaymentRequest;
 import com.neueda.dto.ErrorResponse;
 import com.neueda.dto.PaymentResponse;
+import com.neueda.exception.AccountValidationException;
 import com.neueda.exception.PaymentNotFoundException;
 import com.neueda.exception.PaymentProcessingException;
 import com.neueda.exception.PaymentValidationException;
+import com.neueda.service.AccountService;
 import com.neueda.service.PaymentService;
 
 import jakarta.validation.Valid;
@@ -39,46 +41,61 @@ import jakarta.validation.Valid;
 public class PaymentController {
     
     private final PaymentService paymentService;
+    private final AccountService accountService;
     
-    public PaymentController(PaymentService paymentService) {
+    public PaymentController(PaymentService paymentService, AccountService accountService) {
         this.paymentService = paymentService;
+        this.accountService = accountService;
     }
     
-    /**
-     * Create a new payment.
-     * 
-     * Request: POST /api/payments
-     * Body: CreatePaymentRequest (sourceAccount, destinationAccount, amount, currency, idempotencyKey)
-     * 
-     * Response:
-     * - 201 Created: Payment created successfully
-     * - 400 Bad Request: Validation error (invalid fields)
-     * - 409 Conflict: Duplicate idempotency key with different details
-     * - 500 Internal Server Error: Server error
-     * 
-     * @param request payment creation request
-     * @return 201 Created with payment details
-     */
     @PostMapping
     public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
         try {
-            // Convert DTO to domain model
-            PaymentRecord newPayment = PaymentRecord.create(
-                request.idempotencyKey(),
-                request.sourceAccount(),
-                request.destinationAccount(),
-                request.amount(),
-                request.currency()
-            );
+            // Step 1: Verify PIN for source account
+            try {
+                accountService.verifyAccountPinByAccountNumber(request.sourceAccount(), request.pin());
+            } catch (Exception e) {
+                throw new AccountValidationException("PIN verification failed: " + e.getMessage(), 
+                    "INVALID_PIN");
+            }
             
-            // Create payment (executes validation, logs audit trail, handles idempotency)
+            // Step 2: Convert DTO to domain model
+            // Check if exchange rate information is provided
+            PaymentRecord newPayment;
+            if (request.exchangeRate() != null && request.sourceAmount() != null && request.destinationAmount() != null) {
+                // Create payment with exchange rate information
+                newPayment = PaymentRecord.createWithExchangeRate(
+                    request.idempotencyKey(),
+                    request.sourceAccount(),
+                    request.destinationAccount(),
+                    request.amount(),
+                    request.currency(),
+                    request.sourceAmount(),
+                    request.destinationAmount(),
+                    request.exchangeRate()
+                );
+            } else {
+                // Create payment without exchange rate (backward compatibility)
+                newPayment = PaymentRecord.create(
+                    request.idempotencyKey(),
+                    request.sourceAccount(),
+                    request.destinationAccount(),
+                    request.amount(),
+                    request.currency()
+                );
+            }
+            
+            // Step 3: Create payment (executes validation, logs audit trail, handles idempotency)
             PaymentRecord savedPayment = paymentService.createPayment(newPayment);
             
-            // Convert domain model to response DTO
+            // Step 4: Convert domain model to response DTO
             PaymentResponse response = toPaymentResponse(savedPayment);
             
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
             
+        } catch (AccountValidationException e) {
+            // 401 Unauthorized: PIN verification failed
+            throw e;
         } catch (IllegalArgumentException e) {
             // 400 Bad Request: Invalid input
             throw new PaymentValidationException("Invalid payment details: " + e.getMessage(), 
@@ -217,7 +234,7 @@ public class PaymentController {
     
     /**
      * Convert PaymentRecord (domain model) to PaymentResponse (DTO).
-     * Includes embedded validation results for transparency.
+     * Includes embedded validation results and exchange rate information for transparency.
      * 
      * @param payment domain model
      * @return response DTO
@@ -245,6 +262,9 @@ public class PaymentController {
             payment.status(),
             payment.errorCode(),
             payment.errorMessage(),
+            payment.sourceAmount(),
+            payment.destinationAmount(),
+            payment.exchangeRate(),
             payment.createdAt(),
             payment.updatedAt(),
             validationResults

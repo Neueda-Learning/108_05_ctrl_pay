@@ -86,6 +86,26 @@ public class AccountService {
             .orElseThrow(() -> new AccountValidationException("Account not found: " + accountId, "ACCOUNT_NOT_FOUND"));
         return account.accountPin().equals(rawPin);
     }
+
+    /**
+     * Verify account PIN by account number (12-digit identifier).
+     * Useful for payment processing where we have account number not ID.
+     * 
+     * @param accountNumber 12-digit account number
+     * @param pin 4-6 digit PIN to verify
+     * @return true if PIN matches
+     * @throws AccountValidationException if account not found or PIN is invalid
+     */
+    public boolean verifyAccountPinByAccountNumber(String accountNumber, String pin) {
+        AccountRecord account = accountRepository.findByAccountNumber(accountNumber)
+            .orElseThrow(() -> new AccountValidationException("Account not found: " + accountNumber, "ACCOUNT_NOT_FOUND"));
+        
+        if (!account.accountPin().equals(pin)) {
+            throw new AccountValidationException("Invalid PIN for account: " + accountNumber, "INVALID_PIN");
+        }
+        
+        return true;
+    }
 }
 
 

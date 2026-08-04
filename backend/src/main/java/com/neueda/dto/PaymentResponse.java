@@ -10,7 +10,7 @@ import com.neueda.domain.PaymentStatus;
 /**
  * Response DTO for payment details.
  * Returned by API endpoints when retrieving a single payment.
- * Includes payment details, status, and embedded validation results for transparency.
+ * Includes payment details, status, exchange rate information, and embedded validation results for transparency.
  */
 public record PaymentResponse(
     /**
@@ -57,6 +57,21 @@ public record PaymentResponse(
      * Human-readable error message if payment failed (null if not failed).
      */
     String errorMessage,
+    
+    /**
+     * Amount debited from source account (in source currency).
+     */
+    BigDecimal sourceAmount,
+    
+    /**
+     * Amount credited to destination account (in destination currency).
+     */
+    BigDecimal destinationAmount,
+    
+    /**
+     * Exchange rate applied for cross-currency transfers.
+     */
+    BigDecimal exchangeRate,
     
     /**
      * Payment creation timestamp (ISO 8601 format).

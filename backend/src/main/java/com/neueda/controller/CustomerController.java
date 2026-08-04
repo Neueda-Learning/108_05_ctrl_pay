@@ -301,6 +301,9 @@ public class CustomerController {
             payment.status(),
             payment.errorCode(),
             payment.errorMessage(),
+            payment.sourceAmount(),
+            payment.destinationAmount(),
+            payment.exchangeRate(),
             payment.createdAt(),
             payment.updatedAt(),
             validationResults
