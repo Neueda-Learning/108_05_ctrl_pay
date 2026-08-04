@@ -3,6 +3,76 @@
 -- Created: July 31, 2026
 
 -- ========================================
+-- TABLE: customers
+-- Purpose: Customer profile master record keyed by PAN
+-- ========================================
+CREATE TABLE IF NOT EXISTS customers (
+    customer_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Unique customer identifier',
+    name VARCHAR(255) NOT NULL COMMENT 'Customer full name',
+    dob DATE NOT NULL COMMENT 'Customer date of birth',
+    phone_number VARCHAR(20) NOT NULL COMMENT 'Customer phone number',
+    pan_number VARCHAR(10) NOT NULL UNIQUE COMMENT 'Permanent Account Number (unique customer key)',
+    profile_created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Profile creation timestamp',
+    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last profile update timestamp',
+    country VARCHAR(100) NOT NULL COMMENT 'Customer country of residence',
+    customer_account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT 'Customer profile status: ACTIVE or PASSIVE',
+
+    CONSTRAINT chk_customer_account_status CHECK (customer_account_status IN ('ACTIVE', 'PASSIVE')),
+    CONSTRAINT chk_pan_number_format CHECK (pan_number REGEXP '^[A-Z]{5}[0-9]{4}[A-Z]{1}$'),
+    CONSTRAINT chk_customer_phone_format CHECK (phone_number REGEXP '^[0-9+() -]{7,20}$') ,
+
+    INDEX idx_customer_name (name) COMMENT 'Search customers by name',
+    INDEX idx_customer_phone (phone_number) COMMENT 'Lookup customers by phone number',
+    INDEX idx_customer_status (customer_account_status) COMMENT 'Filter customers by account status'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Customer profile master record keyed by PAN';
+
+-- ========================================
+-- TABLE: accounts
+-- Purpose: Bank account records linked to a single customer profile
+-- ========================================
+CREATE TABLE IF NOT EXISTS accounts (
+    account_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Unique account identifier',
+    customer_id BIGINT NOT NULL COMMENT 'Foreign key to customers.customer_id',
+    account_name VARCHAR(255) NOT NULL COMMENT 'Account holder nickname or display name',
+    account_balance DECIMAL(19, 2) NOT NULL DEFAULT 0.00 COMMENT 'Current account balance',
+    account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT 'Account status: ACTIVE, PASSIVE, DORMANT, or SUSPICIOUS',
+    currency CHAR(3) NOT NULL COMMENT 'ISO 4217 currency code',
+    account_opening_date DATE NOT NULL COMMENT 'Date the account was opened',
+    last_updated TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last account update timestamp',
+    ifsc_code VARCHAR(11) NOT NULL COMMENT 'Bank IFSC code',
+    account_location VARCHAR(255) NOT NULL COMMENT 'Branch or account location',
+    bank_name VARCHAR(255) NOT NULL COMMENT 'Bank name',
+    account_pin_hash VARCHAR(255) NOT NULL COMMENT 'Account PIN used for payment authentication (plain string storage)',
+
+    CONSTRAINT fk_account_customer_id FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE,
+    CONSTRAINT chk_account_status CHECK (account_status IN ('ACTIVE', 'PASSIVE', 'DORMANT', 'SUSPICIOUS')),
+    CONSTRAINT chk_account_balance CHECK (account_balance >= 0),
+    CONSTRAINT chk_account_currency CHECK (currency REGEXP '^[A-Z]{3}$'),
+    CONSTRAINT chk_ifsc_code_format CHECK (ifsc_code REGEXP '^[A-Z]{4}0[A-Z0-9]{6}$'),
+
+    INDEX idx_account_customer_id (customer_id) COMMENT 'List all accounts for a customer',
+    INDEX idx_account_status (account_status) COMMENT 'Filter by account status',
+    INDEX idx_account_currency (currency) COMMENT 'Filter by currency',
+    INDEX idx_account_bank_name (bank_name) COMMENT 'Search by bank name'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Bank account records linked to customers';
+
+SET @account_pin_hash_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'accounts'
+      AND column_name = 'account_pin_hash'
+);
+SET @add_account_pin_hash_sql = IF(
+    @account_pin_hash_exists = 0,
+    'ALTER TABLE accounts ADD COLUMN account_pin_hash VARCHAR(255) NOT NULL COMMENT ''Account PIN used for payment authentication (plain string storage)''',
+    'SELECT 1'
+);
+PREPARE add_account_pin_hash_stmt FROM @add_account_pin_hash_sql;
+EXECUTE add_account_pin_hash_stmt;
+DEALLOCATE PREPARE add_account_pin_hash_stmt;
+
+-- ========================================
 -- TABLE: payments
 -- Purpose: Core payment records with lifecycle status
 -- ========================================

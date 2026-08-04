@@ -1,92 +1,210 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
-  Grid,
-  Typography,
   CircularProgress,
+  Grid,
+  MenuItem,
+  TextField,
+  Typography,
+  Chip,
 } from '@mui/material';
-import {
-  LineChart,
-  Line,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts';
-import { analyticsAPI } from '../services/api';
+import { DataGrid } from '@mui/x-data-grid';
+import { format } from 'date-fns';
+import { customerAPI } from '../services/api';
+import { useCustomer } from '../context/CustomerContext';
+
+const statusColors = {
+  CREATED: 'default',
+  VALIDATED: 'info',
+  SENT: 'warning',
+  COMPLETED: 'success',
+  FAILED: 'error',
+};
 
 function Analytics() {
-  const [loading, setLoading] = useState(true);
-  const [analytics, setAnalytics] = useState({
-    successRate: 0,
-    statusDistribution: {},
-    volume: 0,
+  const { customerId, customer, accounts, loadCustomer, loadingCustomer } = useCustomer();
+  const [customerIdInput, setCustomerIdInput] = useState(customerId || '');
+  const [filters, setFilters] = useState({
+    status: '',
+    account: '',
+    dateFrom: '',
+    dateTo: '',
   });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [payments, setPayments] = useState([]);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, []);
+    setCustomerIdInput(customerId || '');
+  }, [customerId]);
 
-  const fetchAnalytics = async () => {
+  const accountOptions = useMemo(() => (Array.isArray(accounts) ? accounts : []), [accounts]);
+
+  const getAccountValue = (account) => (
+    account?.accountNumber
+      || account?.sourceAccount
+      || account?.accountId
+      || account?.id
+      || ''
+  );
+
+  const getAccountLabel = (account) => `${account?.accountName || 'Account'}${getAccountValue(account) ? ` (${getAccountValue(account)})` : ''}`;
+
+  const fetchCustomerPayments = async (customerId, currentFilters = filters) => {
     try {
       setLoading(true);
-      const [successRes, distRes, volRes] = await Promise.all([
-        analyticsAPI.getSuccessRate(),
-        analyticsAPI.getStatusDistribution(),
-        analyticsAPI.getVolume(),
-      ]);
+      setError('');
 
-      setAnalytics({
-        successRate: parseFloat(successRes.data.success_rate_percent),
-        statusDistribution: distRes.data,
-        volume: successRes.data.total_payments,
-      });
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
+      const params = {
+        ...(currentFilters.status && { status: currentFilters.status }),
+        ...(currentFilters.account && { account: currentFilters.account }),
+        ...(currentFilters.dateFrom && { 'date-from': currentFilters.dateFrom }),
+        ...(currentFilters.dateTo && { 'date-to': currentFilters.dateTo }),
+      };
+
+      const response = await customerAPI.getCustomerPayments(customerId, params);
+      const rows = Array.isArray(response.data)
+        ? response.data
+        : Array.isArray(response.data?.content)
+          ? response.data.content
+          : [];
+
+      setPayments(rows.map((payment, index) => ({
+        id: payment.id || payment.paymentId || index,
+        ...payment,
+      })));
+    } catch (fetchError) {
+      setError(fetchError.response?.data?.message || fetchError.message || 'Unable to load payment statistics');
+      setPayments([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const chartData = [
-    { date: 'Mon', volume: 120, success: 100, failure: 20 },
-    { date: 'Tue', volume: 150, success: 130, failure: 20 },
-    { date: 'Wed', volume: 140, success: 120, failure: 20 },
-    { date: 'Thu', volume: 180, success: 160, failure: 20 },
-    { date: 'Fri', volume: 200, success: 180, failure: 20 },
-    { date: 'Sat', volume: 90, success: 81, failure: 9 },
-    { date: 'Sun', volume: 70, success: 63, failure: 7 },
-  ];
+  const handleLoadDashboard = async () => {
+    try {
+      const loadedCustomer = await loadCustomer(customerIdInput);
+      const customerId = loadedCustomer?.customer?.customerId || customerIdInput;
+      await fetchCustomerPayments(customerId, filters);
+    } catch (loadError) {
+      setError(loadError.response?.data?.message || loadError.message || 'Unable to load customer');
+      setPayments([]);
+    }
+  };
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
+  const handleApplyFilters = async () => {
+    const customerId = customer?.customerId || customerIdInput;
+    if (!customerId) {
+      setError('Enter a Customer ID before applying filters');
+      return;
+    }
+    await fetchCustomerPayments(customerId, filters);
+  };
+
+  const summary = useMemo(() => {
+    const total = payments.length;
+    const successful = payments.filter((payment) => payment.status === 'COMPLETED').length;
+    const failed = payments.filter((payment) => payment.status === 'FAILED').length;
+    const pending = total - successful - failed;
+    return { total, successful, failed, pending };
+  }, [payments]);
+
+  const columns = [
+    { field: 'id', headerName: 'Payment ID', width: 140 },
+    {
+      field: 'sourceAccount',
+      headerName: 'From Account',
+      width: 180,
+      renderCell: (params) => params.row.sourceAccount || params.row.source_account || params.row.accountId || '',
+    },
+    {
+      field: 'destinationAccount',
+      headerName: 'To Account',
+      width: 180,
+      renderCell: (params) => params.row.destinationAccount || params.row.destination_account || '',
+    },
+    {
+      field: 'amount',
+      headerName: 'Amount',
+      width: 130,
+      renderCell: (params) => `${params.row.amount} ${params.row.currency || ''}`,
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 130,
+      renderCell: (params) => (
+        <Chip
+          size="small"
+          label={params.value}
+          color={statusColors[params.value] || 'default'}
+          variant="outlined"
+        />
+      ),
+    },
+    {
+      field: 'createdAt',
+      headerName: 'Created At',
+      width: 180,
+      renderCell: (params) => (params.value ? format(new Date(params.value), 'MMM dd, yyyy HH:mm') : 'N/A'),
+    },
+  ];
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ fontWeight: 700, mb: 3 }}>
-        Analytics & Reports
-      </Typography>
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
+          Statistics Dashboard
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Load a customer ID to inspect successful payments, failed payments, payment details, and filtered results.
+        </Typography>
+      </Box>
 
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={8}>
+              <TextField
+                label="Customer ID"
+                value={customerIdInput}
+                onChange={(e) => setCustomerIdInput(e.target.value)}
+                fullWidth
+                placeholder="Enter customer ID to load payment records"
+              />
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <Button variant="contained" onClick={handleLoadDashboard} disabled={loadingCustomer || loading} fullWidth>
+                {(loadingCustomer || loading) ? 'Loading...' : 'Load Statistics'}
+              </Button>
+            </Grid>
+          </Grid>
+          {error && (
+            <Alert severity="error" sx={{ mt: 2 }}>
+              {error}
+            </Alert>
+          )}
+          {customer && (
+            <Alert severity="success" sx={{ mt: 2 }}>
+              Showing payment data for {customer.name} ({customer.customerId}).
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      <Grid container spacing={3} sx={{ mb: 3 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Total Volume
+              <Typography color="text.secondary" gutterBottom>
+                Total Payments
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                {analytics.volume.toLocaleString()}
+                {summary.total}
               </Typography>
             </CardContent>
           </Card>
@@ -94,11 +212,11 @@ function Analytics() {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Success Rate
+              <Typography color="text.secondary" gutterBottom>
+                Successful Payments
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main' }}>
-                {analytics.successRate.toFixed(1)}%
+                {summary.successful}
               </Typography>
             </CardContent>
           </Card>
@@ -106,52 +224,129 @@ function Analytics() {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Completed
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                {analytics.statusDistribution.COMPLETED || 0}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="textSecondary" gutterBottom>
-                Failed
+              <Typography color="text.secondary" gutterBottom>
+                Failed Payments
               </Typography>
               <Typography variant="h4" sx={{ fontWeight: 700, color: 'error.main' }}>
-                {analytics.statusDistribution.FAILED || 0}
+                {summary.failed}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Typography color="text.secondary" gutterBottom>
+                Pending / Other
+              </Typography>
+              <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main' }}>
+                {summary.pending}
               </Typography>
             </CardContent>
           </Card>
         </Grid>
       </Grid>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                Payment Volume Trend
-              </Typography>
-              <ResponsiveContainer width="100%" height={400}>
-                <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="volume" fill="#1976d2" />
-                  <Bar dataKey="success" fill="#2e7d32" />
-                  <Bar dataKey="failure" fill="#d32f2f" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+            Filters
+          </Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Status"
+                select
+                fullWidth
+                value={filters.status}
+                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+              >
+                <MenuItem value="">All</MenuItem>
+                <MenuItem value="CREATED">Created</MenuItem>
+                <MenuItem value="VALIDATED">Validated</MenuItem>
+                <MenuItem value="SENT">Sent</MenuItem>
+                <MenuItem value="COMPLETED">Completed</MenuItem>
+                <MenuItem value="FAILED">Failed</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="Account"
+                select
+                fullWidth
+                value={filters.account}
+                onChange={(e) => setFilters({ ...filters, account: e.target.value })}
+              >
+                <MenuItem value="">All Accounts</MenuItem>
+                {accountOptions.map((account) => {
+                  const value = getAccountValue(account);
+                  return (
+                    <MenuItem key={value || account.accountName} value={value}>
+                      {getAccountLabel(account)}
+                    </MenuItem>
+                  );
+                })}
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="From Date"
+                type="date"
+                fullWidth
+                value={filters.dateFrom}
+                onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                label="To Date"
+                type="date"
+                fullWidth
+                value={filters.dateTo}
+                onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button variant="contained" onClick={handleApplyFilters} disabled={loading}>
+                  Apply Filters
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => setFilters({ status: '', account: '', dateFrom: '', dateTo: '' })}
+                >
+                  Clear Filters
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+            Payment Details
+          </Typography>
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <DataGrid
+              autoHeight
+              rows={payments}
+              columns={columns}
+              pageSizeOptions={[10, 25, 50]}
+              initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
+              disableRowSelectionOnClick
+              sx={{ border: 'none' }}
+            />
+          )}
+        </CardContent>
+      </Card>
     </Box>
   );
 }

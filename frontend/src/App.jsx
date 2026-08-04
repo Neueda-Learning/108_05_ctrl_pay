@@ -13,6 +13,9 @@ import PaymentProcessing from './pages/PaymentProcessing';
 import CreatePayment from './pages/CreatePayment';
 import RulesManagement from './pages/RulesManagement';
 import Analytics from './pages/Analytics';
+import AuthPage from './pages/AuthPage';
+import CustomerProfile from './pages/CustomerProfile';
+import { CustomerProvider } from './context/CustomerContext';
 
 // Create professional theme
 const theme = createTheme({
@@ -97,20 +100,25 @@ function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/payments" element={<PaymentsList />} />
-            <Route path="/payments/create" element={<CreatePayment />} />
-            <Route path="/payment/process/:id" element={<PaymentProcessing />} />
-            <Route path="/payments/:id" element={<PaymentDetail />} />
-            <Route path="/rules" element={<RulesManagement />} />
-            <Route path="/analytics" element={<Analytics />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Layout>
-      </Router>
+      <CustomerProvider>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/customers/new" element={<AuthPage />} />
+              <Route path="/accounts/new" element={<CustomerProfile />} />
+              <Route path="/payments" element={<PaymentsList />} />
+              <Route path="/payments/create" element={<CreatePayment />} />
+              <Route path="/payment/process/:id" element={<PaymentProcessing />} />
+              <Route path="/payments/:id" element={<PaymentDetail />} />
+              <Route path="/rules" element={<RulesManagement />} />
+              <Route path="/statistics" element={<Analytics />} />
+              <Route path="/analytics" element={<Navigate to="/statistics" replace />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </Layout>
+        </Router>
+      </CustomerProvider>
       <ToastContainer
         position="bottom-right"
         autoClose={5000}
@@ -126,6 +134,7 @@ function App() {
     </ThemeProvider>
   );
 }
+
 
 export default App;
 

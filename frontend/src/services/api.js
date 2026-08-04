@@ -9,6 +9,11 @@ const apiClient = axios.create({
   },
 });
 
+const ROOT_API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:8080/api').replace(/\/api$/, '');
+const rootApiClient = axios.create({
+  baseURL: ROOT_API_BASE_URL,
+});
+
 // Payment API
 export const paymentAPI = {
   // Create payment
@@ -78,16 +83,32 @@ export const analyticsAPI = {
   getTrends: () => apiClient.get('/analytics/trends'),
 };
 
+// Customer API
+export const customerAPI = {
+  createCustomer: (data) => apiClient.post('/customers', data),
+  getCustomer: (customerId) => apiClient.get(`/customers/${customerId}`),
+  getCustomerPayments: (customerId, params) => apiClient.get(`/customers/${customerId}/payments`, { params }),
+  getCustomerStats: (customerId, params) => apiClient.get(`/customers/${customerId}/statistics`, { params }),
+};
+
+// Account API
+export const accountAPI = {
+  createAccount: (customerId, data) => apiClient.post(`/customers/${customerId}/accounts`, data),
+  listAccountsByCustomer: (customerId) => apiClient.get(`/customers/${customerId}/accounts`),
+  getAccountById: (accountId) => apiClient.get(`/accounts/${accountId}`),
+};
+
+
 // Health API
 export const healthAPI = {
   // Get health status
-  getHealth: () => apiClient.get('/actuator/health/liveness'),
+  getHealth: () => rootApiClient.get('/actuator/health/liveness'),
 
   // Get readiness
-  getReadiness: () => apiClient.get('/actuator/health/readiness'),
+  getReadiness: () => rootApiClient.get('/actuator/health/readiness'),
 
   // Get info
-  getInfo: () => apiClient.get('/actuator/info'),
+  getInfo: () => rootApiClient.get('/actuator/info'),
 };
 
 export default apiClient;

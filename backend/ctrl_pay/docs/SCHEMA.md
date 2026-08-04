@@ -2,7 +2,109 @@
 
 ## Overview
 
-Ctrl-Pay uses a **MySQL 8.0** relational database with 5 core tables and comprehensive constraints, indexes, and relationships. The schema enforces business rules at the database level and provides an immutable audit trail for compliance.
+Ctrl-Pay uses a **MySQL 8.0** relational database with 7 core tables and comprehensive constraints, indexes, and relationships. The schema enforces business rules at the database level and provides an immutable audit trail for compliance.
+
+---
+
+## Table: `customers`
+
+### Purpose
+Customer profile master record. PAN is the unique business key to ensure one profile per customer.
+
+### Schema
+
+| Column | Type | Attributes | Description |
+|--------|------|-----------|-------------|
+| `customer_id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique customer identifier |
+| `name` | VARCHAR(255) | NOT NULL | Customer full name |
+| `dob` | DATE | NOT NULL | Date of birth |
+| `phone_number` | VARCHAR(20) | NOT NULL | Customer phone number |
+| `pan_number` | VARCHAR(10) | NOT NULL, UNIQUE | Permanent Account Number; unique customer key |
+| `profile_created` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP | Profile creation timestamp |
+| `last_updated` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last profile update timestamp |
+| `country` | VARCHAR(100) | NOT NULL | Customer country |
+| `customer_account_status` | VARCHAR(20) | NOT NULL, DEFAULT 'ACTIVE' | Customer status (ACTIVE, PASSIVE) |
+
+### Constraints
+
+```sql
+CONSTRAINT chk_customer_account_status CHECK (customer_account_status IN ('ACTIVE', 'PASSIVE'))
+CONSTRAINT chk_pan_number_format CHECK (pan_number REGEXP '^[A-Z]{5}[0-9]{4}[A-Z]{1}$')
+CONSTRAINT chk_customer_phone_format CHECK (phone_number REGEXP '^[0-9+() -]{7,20}$')
+```
+
+### Indexes
+
+| Index | Columns | Purpose |
+|-------|---------|---------|
+| `PRIMARY` | `customer_id` | Fast lookup by customer ID |
+| `UNIQUE` | `pan_number` | Enforce one profile per PAN |
+| `idx_customer_name` | `name` | Search customers by name |
+| `idx_customer_phone` | `phone_number` | Lookup by phone number |
+| `idx_customer_status` | `customer_account_status` | Filter active/passive profiles |
+
+### Sample Data
+
+```sql
+INSERT INTO customers (name, dob, phone_number, pan_number, country, customer_account_status)
+VALUES ('Aarav Sharma', '1990-04-21', '9876543210', 'ABCDE1234F', 'India', 'ACTIVE');
+```
+
+---
+
+## Table: `accounts`
+
+### Purpose
+Bank account records linked to a customer profile. A single customer can register multiple accounts.
+
+### Schema
+
+| Column | Type | Attributes | Description |
+|--------|------|-----------|-------------|
+| `account_id` | BIGINT | PRIMARY KEY, AUTO_INCREMENT | Unique account identifier |
+| `customer_id` | BIGINT | NOT NULL, FK | Foreign key to `customers.customer_id` |
+| `account_name` | VARCHAR(255) | NOT NULL | Account display name |
+| `account_balance` | DECIMAL(19, 2) | NOT NULL, DEFAULT 0.00 | Current balance |
+| `account_status` | VARCHAR(20) | NOT NULL, DEFAULT 'ACTIVE' | Account status (ACTIVE, PASSIVE, DORMANT, SUSPICIOUS) |
+| `currency` | CHAR(3) | NOT NULL | ISO 4217 currency code |
+| `account_opening_date` | DATE | NOT NULL | Account opening date |
+| `last_updated` | TIMESTAMP | NOT NULL, DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last account update timestamp |
+| `ifsc_code` | VARCHAR(11) | NOT NULL | Bank IFSC code |
+| `account_location` | VARCHAR(255) | NOT NULL | Account or branch location |
+| `bank_name` | VARCHAR(255) | NOT NULL | Bank name |
+| `account_pin_hash` | VARCHAR(255) | NOT NULL | Account PIN used for payment authentication (plain string storage) |
+
+### Foreign Keys
+
+```sql
+CONSTRAINT fk_account_customer_id FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE
+```
+
+### Constraints
+
+```sql
+CONSTRAINT chk_account_status CHECK (account_status IN ('ACTIVE', 'PASSIVE', 'DORMANT', 'SUSPICIOUS'))
+CONSTRAINT chk_account_balance CHECK (account_balance >= 0)
+CONSTRAINT chk_account_currency CHECK (currency REGEXP '^[A-Z]{3}$')
+CONSTRAINT chk_ifsc_code_format CHECK (ifsc_code REGEXP '^[A-Z]{4}0[A-Z0-9]{6}$')
+```
+
+### Indexes
+
+| Index | Columns | Purpose |
+|-------|---------|---------|
+| `PRIMARY` | `account_id` | Fast lookup by account ID |
+| `idx_account_customer_id` | `customer_id` | List all accounts for a customer |
+| `idx_account_status` | `account_status` | Filter by account status |
+| `idx_account_currency` | `currency` | Filter by currency |
+| `idx_account_bank_name` | `bank_name` | Search by bank name |
+
+### Sample Data
+
+```sql
+INSERT INTO accounts (customer_id, account_name, account_balance, account_status, currency, account_opening_date, ifsc_code, account_location, bank_name, account_pin_hash)
+VALUES (1, 'Primary Savings', 10000.00, 'ACTIVE', 'INR', '2026-07-31', 'HDFC0001234', 'Mumbai', 'HDFC Bank', '1234');
+```
 
 ---
 
@@ -364,6 +466,9 @@ VALUES (2, 2, 'SENT', 'COMPLETED', 120);
 ## Relationships Diagram
 
 ```
+customers
+  └─ 1 → ∞ accounts (CASCADE DELETE)
+
 payments
   ├─ 1 → ∞ payment_status_history (CASCADE DELETE)
   ├─ 1 → ∞ validation_results (CASCADE DELETE)
@@ -380,6 +485,15 @@ validation_rules
 ### Level 1: Database Constraints
 
 ```sql
+-- Customer profiles
+UNIQUE (pan_number)                           -- Only one profile per PAN
+CHECK (customer_account_status IN ('ACTIVE', 'PASSIVE'))
+
+-- Accounts table
+FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE
+CHECK (account_status IN ('ACTIVE', 'PASSIVE', 'DORMANT', 'SUSPICIOUS'))
+CHECK (account_balance >= 0)
+
 -- Payments table
 CHECK (source_account != destination_account)  -- No self-transfers
 CHECK (amount > 0 AND amount <= 1000000.00)    -- Amount validity
@@ -400,6 +514,8 @@ payments (id) ← payment_retry_attempts (payment_id)
 - Status transitions enforced by StatusTransitionValidator
 - Validation rules executed by RuleEngine
 - Idempotency checked in PaymentService
+- Customer uniqueness enforced by PAN number
+- Account ownership enforced by `customers.customer_id` → `accounts.customer_id`
 
 ### Level 3: Transaction Atomicity
 
@@ -496,9 +612,11 @@ WHERE new_status = 'COMPLETED';
 - Test recovery procedures quarterly
 
 **Sensitive Tables (priority backups):**
-1. `payments` - Core business data
-2. `payment_status_history` - Audit trail (compliance required)
-3. `validation_results` - Audit trail (compliance required)
+1. `customers` - Customer identity and KYC-style profile data
+2. `accounts` - Customer bank account records
+3. `payments` - Core business data
+4. `payment_status_history` - Audit trail (compliance required)
+5. `validation_results` - Audit trail (compliance required)
 
 ---
 
@@ -520,7 +638,7 @@ ALTER TABLE payments ADD CONSTRAINT fk_reference_payment
 
 ---
 
-**Last Updated:** July 31, 2026  
+**Last Updated:** August 4, 2026  
 **Phase:** Phase 1 - Foundation Complete  
 **Database:** MySQL 8.0  
 **Schema Version:** 1.0
