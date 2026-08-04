@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Box,
   AppBar,
@@ -11,50 +11,50 @@ import {
   ListItemText,
   Typography,
   Divider,
-  Avatar,
-  Menu,
-  MenuItem,
+  Button,
   IconButton,
   useMediaQuery,
   useTheme,
 } from '@mui/material';
 import {
   Dashboard as DashboardIcon,
+  PersonAdd as PersonAddIcon,
+  CreditCard as CreditCardIcon,
   Payment as PaymentIcon,
   Settings as SettingsIcon,
   BarChart as AnalyticsIcon,
   Menu as MenuIcon,
   Close as CloseIcon,
-  AccountCircle as ProfileIcon,
-  Logout as LogoutIcon,
 } from '@mui/icons-material';
+import { useCustomer } from '../context/CustomerContext';
 
 const DRAWER_WIDTH = 280;
 
 const menuItems = [
-  { label: 'Dashboard', icon: <DashboardIcon />, path: '/' },
+  { label: 'Home', icon: <DashboardIcon />, path: '/' },
+  { label: 'Create Customer', icon: <PersonAddIcon />, path: '/customers/new' },
+  { label: 'Create Account', icon: <CreditCardIcon />, path: '/accounts/new' },
+  { label: 'Make Payment', icon: <PaymentIcon />, path: '/payments/create' },
+  { label: 'Statistics', icon: <AnalyticsIcon />, path: '/statistics' },
   { label: 'Payments', icon: <PaymentIcon />, path: '/payments' },
   { label: 'Rules Management', icon: <SettingsIcon />, path: '/rules' },
-  { label: 'Analytics', icon: <AnalyticsIcon />, path: '/analytics' },
 ];
 
 function Layout({ children }) {
   const [open, setOpen] = useState(true);
-  const [anchorEl, setAnchorEl] = useState(null);
   const location = useLocation();
+  const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { customerId, customer, clearCustomer } = useCustomer();
 
   const handleDrawerToggle = () => {
     setOpen(!open);
   };
 
-  const handleProfileMenu = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileClose = () => {
-    setAnchorEl(null);
+  const handleClearCustomer = () => {
+    clearCustomer();
+    navigate('/');
   };
 
   return (
@@ -89,35 +89,21 @@ function Layout({ children }) {
           >
             💳 Ctrl-Pay
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
-              Payment System
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.85)' }}>
+              {customerId ? `Customer: ${customerId}` : 'No customer selected'}
             </Typography>
-            <IconButton
-              onClick={handleProfileMenu}
-              sx={{ color: 'inherit' }}
-            >
-              <Avatar sx={{ width: 32, height: 32, bgcolor: 'secondary.main' }}>
-                A
-              </Avatar>
-            </IconButton>
+            {customer && (
+              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                {customer.name}
+              </Typography>
+            )}
+            {customerId && (
+              <Button color="inherit" variant="outlined" size="small" onClick={handleClearCustomer}>
+                Clear Customer
+              </Button>
+            )}
           </Box>
-          <Menu
-            anchorEl={anchorEl}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileClose}
-          >
-            <MenuItem onClick={handleProfileClose}>
-              <ProfileIcon sx={{ mr: 1 }} /> Profile
-            </MenuItem>
-            <MenuItem onClick={handleProfileClose}>
-              <SettingsIcon sx={{ mr: 1 }} /> Settings
-            </MenuItem>
-            <Divider />
-            <MenuItem onClick={handleProfileClose}>
-              <LogoutIcon sx={{ mr: 1 }} /> Logout
-            </MenuItem>
-          </Menu>
         </Toolbar>
       </AppBar>
 
@@ -171,7 +157,7 @@ function Layout({ children }) {
         <Divider sx={{ my: 2 }} />
         <Box sx={{ px: 2, py: 1 }}>
           <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-            Version 1.0.0
+            Customer-ID flow enabled
           </Typography>
         </Box>
       </Drawer>

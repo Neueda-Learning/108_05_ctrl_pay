@@ -17,15 +17,20 @@ export function CustomerProvider({ children }) {
 
     setLoadingCustomer(true);
     try {
-      const [customerRes, accountsRes] = await Promise.all([
-        customerAPI.getCustomer(normalizedCustomerId),
-        accountAPI.listAccountsByCustomer(normalizedCustomerId),
-      ]);
+      const customerRes = await customerAPI.getCustomer(normalizedCustomerId);
+      let accountsData = [];
+
+      try {
+        const accountsRes = await accountAPI.listAccountsByCustomer(normalizedCustomerId);
+        accountsData = Array.isArray(accountsRes.data) ? accountsRes.data : [];
+      } catch {
+        accountsData = [];
+      }
 
       setCustomerId(normalizedCustomerId);
       setCustomer(customerRes.data);
-      setAccounts(Array.isArray(accountsRes.data) ? accountsRes.data : []);
-      return { customer: customerRes.data, accounts: accountsRes.data || [] };
+      setAccounts(accountsData);
+      return { customer: customerRes.data, accounts: accountsData };
     } finally {
       setLoadingCustomer(false);
     }
