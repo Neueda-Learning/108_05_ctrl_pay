@@ -17,6 +17,8 @@ import { toast } from 'react-toastify';
 import { accountAPI } from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
 
+const getTodayDateString = () => new Date().toISOString().split('T')[0];
+
 function CustomerProfile() {
   const { customerId, customer, accounts, loadCustomer, loadingCustomer, clearCustomer } = useCustomer();
   const [customerIdInput, setCustomerIdInput] = useState(customerId || '');
@@ -30,6 +32,7 @@ function CustomerProfile() {
     defaultValues: {
       accountName: '',
       accountBalance: '0',
+      accountOpeningDate: getTodayDateString(),
       currency: 'INR',
       ifscCode: '',
       accountLocation: '',
@@ -57,6 +60,7 @@ function CustomerProfile() {
       await accountAPI.createAccount(customer.customerId, {
         accountName: values.accountName,
         accountBalance: parseFloat(values.accountBalance),
+        accountOpeningDate: values.accountOpeningDate,
         currency: values.currency.toUpperCase(),
         ifscCode: values.ifscCode.toUpperCase(),
         accountLocation: values.accountLocation,
@@ -68,6 +72,7 @@ function CustomerProfile() {
       accountForm.reset({
         accountName: '',
         accountBalance: '0',
+        accountOpeningDate: getTodayDateString(),
         currency: 'INR',
         ifscCode: '',
         accountLocation: '',
@@ -183,16 +188,45 @@ function CustomerProfile() {
                     <Controller
                       name="accountBalance"
                       control={accountForm.control}
-                      rules={{ required: 'Balance is required' }}
+                      rules={{
+                        required: 'Opening balance is required',
+                        min: {
+                          value: 0,
+                          message: 'Opening balance cannot be negative',
+                        },
+                      }}
                       render={({ field }) => (
                         <TextField
                           {...field}
                           label="Opening Balance"
                           type="number"
+                          placeholder="0.00"
                           inputProps={{ min: '0', step: '0.01' }}
                           fullWidth
                           error={!!accountForm.formState.errors.accountBalance}
                           helperText={accountForm.formState.errors.accountBalance?.message}
+                        />
+                      )}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Controller
+                      name="accountOpeningDate"
+                      control={accountForm.control}
+                      rules={{
+                        required: 'Account opening date is required',
+                        validate: (value) => value <= getTodayDateString() || 'Account opening date cannot be in the future',
+                      }}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Account Opening Date"
+                          type="date"
+                          fullWidth
+                          InputLabelProps={{ shrink: true }}
+                          inputProps={{ max: getTodayDateString() }}
+                          helperText={accountForm.formState.errors.accountOpeningDate?.message || 'Defaults to today'}
+                          error={!!accountForm.formState.errors.accountOpeningDate}
                         />
                       )}
                     />
