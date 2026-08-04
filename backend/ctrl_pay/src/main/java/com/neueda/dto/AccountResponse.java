@@ -14,6 +14,7 @@ import com.neueda.domain.AccountStatus;
 public record AccountResponse(
     Long accountId,
     Long customerId,
+    String accountNumber,
     String accountName,
     BigDecimal accountBalance,
     AccountStatus accountStatus,

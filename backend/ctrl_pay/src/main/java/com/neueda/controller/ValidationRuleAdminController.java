@@ -25,6 +25,7 @@ import com.neueda.dto.ValidationRuleResponse;
 import com.neueda.exception.PaymentProcessingException;
 import com.neueda.repository.ValidationRuleRepository;
 import com.neueda.validation.RuleEngine;
+import com.neueda.validation.RuleFactory;
 import com.neueda.validation.rules.ValidationRule;
 import com.neueda.validation.rules.ValidationRule.ValidationRuleResult;
 
@@ -47,15 +48,18 @@ public class ValidationRuleAdminController {
     
     private final ValidationRuleRepository validationRuleRepository;
     private final RuleEngine ruleEngine;
+    private final RuleFactory ruleFactory;
     private final ObjectMapper objectMapper;
     
     public ValidationRuleAdminController(
         ValidationRuleRepository validationRuleRepository,
         RuleEngine ruleEngine,
+        RuleFactory ruleFactory,
         ObjectMapper objectMapper
     ) {
         this.validationRuleRepository = validationRuleRepository;
         this.ruleEngine = ruleEngine;
+        this.ruleFactory = ruleFactory;
         this.objectMapper = objectMapper;
     }
     
@@ -323,18 +327,26 @@ public class ValidationRuleAdminController {
                 request.destinationAccount(),
                 request.amount(),
                 request.currency(),
+                null, // sourceAmount - not relevant for rule testing
+                null, // destinationAmount - not relevant for rule testing
+                null, // exchangeRate - not relevant for rule testing
                 request.status() != null ? 
                     com.neueda.domain.PaymentStatus.valueOf(request.status()) :
                     com.neueda.domain.PaymentStatus.CREATED,
-                null,
-                null,
+                null, // errorCode
+                null, // errorMessage
+                0, // settlementAttemptCount
+                3, // maxSettlementAttempts
+                null, // lastSettlementAttemptTime
+                null, // nextSettlementRetryTime
+                null, // settledAt
                 LocalDateTime.now(),
                 LocalDateTime.now()
             );
             
-            // Execute rule via RuleEngine
+            // Execute rule via RuleFactory
             com.neueda.validation.rules.ValidationRule ruleImpl = 
-                com.neueda.validation.RuleFactory.createRule(rule.ruleType());
+                ruleFactory.createRule(rule.ruleType());
             ValidationRuleResult result = ruleImpl.execute(samplePayment, rule.ruleDefinition());
             
             // Return test result (no DB write)

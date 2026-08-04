@@ -27,6 +27,13 @@ public record AccountRecord(
 	Long customerId,
 
 	/**
+	 * Unique 12-digit account number (business identifier).
+	 */
+	@NotBlank(message = "Account number is required")
+	@Pattern(regexp = "^[0-9]{12}$", message = "Account number must be exactly 12 digits")
+	String accountNumber,
+
+	/**
 	 * Display name for the account.
 	 */
 	@NotBlank(message = "Account name is required")
@@ -96,6 +103,7 @@ public record AccountRecord(
 	 */
 	public static AccountRecord create(
 		Long customerId,
+		String accountNumber,
 		String accountName,
 		BigDecimal accountBalance,
 		String currency,
@@ -109,6 +117,7 @@ public record AccountRecord(
 		return new AccountRecord(
 			null,
 			customerId,
+			accountNumber,
 			accountName,
 			accountBalance,
 			AccountStatus.ACTIVE,
@@ -129,6 +138,7 @@ public record AccountRecord(
 		return new AccountRecord(
 			this.accountId,
 			this.customerId,
+			this.accountNumber,
 			this.accountName,
 			this.accountBalance,
 			newStatus,
@@ -141,6 +151,26 @@ public record AccountRecord(
 			this.accountPin
 		);
 	}
+
+	/**
+	 * Creates a copy of this record with an updated balance.
+	 * Used during payment settlement to debit/credit accounts.
+	 */
+	public AccountRecord withNewBalance(BigDecimal newBalance) {
+		return new AccountRecord(
+			this.accountId,
+			this.customerId,
+			this.accountNumber,
+			this.accountName,
+			newBalance,
+			this.accountStatus,
+			this.currency,
+			this.accountOpeningDate,
+			LocalDateTime.now(),
+			this.ifscCode,
+			this.accountLocation,
+			this.bankName,
+			this.accountPin
+		);
+	}
 }
-
-

@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE TABLE IF NOT EXISTS accounts (
     account_id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Unique account identifier',
     customer_id BIGINT NOT NULL COMMENT 'Foreign key to customers.customer_id',
+    account_number VARCHAR(12) NOT NULL UNIQUE COMMENT 'Unique 12-digit account number (business identifier)',
     account_name VARCHAR(255) NOT NULL COMMENT 'Account holder nickname or display name',
     account_balance DECIMAL(19, 2) NOT NULL DEFAULT 0.00 COMMENT 'Current account balance',
     account_status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' COMMENT 'Account status: ACTIVE, PASSIVE, DORMANT, or SUSPICIOUS',
@@ -48,8 +49,10 @@ CREATE TABLE IF NOT EXISTS accounts (
     CONSTRAINT chk_account_status CHECK (account_status IN ('ACTIVE', 'PASSIVE', 'DORMANT', 'SUSPICIOUS')),
     CONSTRAINT chk_account_balance CHECK (account_balance >= 0),
     CONSTRAINT chk_account_currency CHECK (currency REGEXP '^[A-Z]{3}$'),
+    CONSTRAINT chk_account_number_format CHECK (account_number REGEXP '^[0-9]{12}$'),
     CONSTRAINT chk_ifsc_code_format CHECK (ifsc_code REGEXP '^[A-Z]{4}0[A-Z0-9]{6}$'),
 
+    INDEX idx_account_number (account_number) COMMENT 'Lookup account by account number',
     INDEX idx_account_customer_id (customer_id) COMMENT 'List all accounts for a customer',
     INDEX idx_account_status (account_status) COMMENT 'Filter by account status',
     INDEX idx_account_currency (currency) COMMENT 'Filter by currency',
@@ -83,9 +86,17 @@ CREATE TABLE IF NOT EXISTS payments (
     destination_account VARCHAR(50) NOT NULL COMMENT 'Destination account number (format: 12 digits)',
     amount DECIMAL(19, 2) NOT NULL COMMENT 'Payment amount in minor units (cents/paise)',
     currency CHAR(3) NOT NULL COMMENT 'ISO 4217 currency code (e.g., USD, EUR)',
+    source_amount DECIMAL(19, 2) NULL COMMENT 'Amount debited from sender account (in sender currency)',
+    destination_amount DECIMAL(19, 2) NULL COMMENT 'Amount credited to receiver account (in receiver currency)',
+    exchange_rate DECIMAL(19, 6) NULL COMMENT 'Exchange rate applied (if cross-currency)',
     status VARCHAR(20) NOT NULL DEFAULT 'CREATED' COMMENT 'Payment lifecycle status: CREATED, VALIDATED, SENT, COMPLETED, FAILED',
     error_code VARCHAR(50) NULL COMMENT 'Error code if payment failed (e.g., VALIDATION_FAILED, INSUFFICIENT_FUNDS)',
     error_message TEXT NULL COMMENT 'Human-readable error message',
+    settlement_attempt_count INT NOT NULL DEFAULT 0 COMMENT 'Number of settlement processing attempts',
+    max_settlement_attempts INT NOT NULL DEFAULT 3 COMMENT 'Maximum allowed settlement attempts',
+    last_settlement_attempt_time TIMESTAMP NULL COMMENT 'Timestamp of last settlement attempt',
+    next_settlement_retry_time TIMESTAMP NULL COMMENT 'Scheduled time for next settlement retry',
+    settled_at TIMESTAMP NULL COMMENT 'Timestamp when payment was successfully settled (accounts debited/credited)',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Payment creation timestamp',
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
 
@@ -100,7 +111,8 @@ CREATE TABLE IF NOT EXISTS payments (
     INDEX idx_idempotency_key (idempotency_key) COMMENT 'Lookup by idempotency key for duplicate detection',
     INDEX idx_source_account (source_account) COMMENT 'Filter by source account',
     INDEX idx_destination_account (destination_account) COMMENT 'Filter by destination account',
-    INDEX idx_currency (currency) COMMENT 'Filter by currency'
+    INDEX idx_currency (currency) COMMENT 'Filter by currency',
+    INDEX idx_next_retry_time (next_settlement_retry_time) COMMENT 'Find payments ready for retry settlement'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Core payment records';
 
 -- ========================================
@@ -258,15 +270,14 @@ VALUES (
     TRUE
 ) ON DUPLICATE KEY UPDATE is_active = TRUE;
 
--- Rule 5: Mock Sufficient Funds Validation
+-- Rule 5: Sufficient Funds Validation
 INSERT INTO validation_rules (name, description, rule_type, rule_definition, severity, order_of_execution, is_active)
 VALUES (
-    'MOCK_SUFFICIENT_FUNDS',
-    'Simulates checking if source account has sufficient funds (mock implementation)',
-    'MOCK_SUFFICIENT_FUNDS',
+    'SUFFICIENT_FUNDS',
+    'Validates that source account has sufficient balance for the payment',
+    'SUFFICIENT_FUNDS',
     JSON_OBJECT(
-        'type', 'MOCK_SUFFICIENT_FUNDS',
-        'failure_rate', 0.1,
+        'type', 'SUFFICIENT_FUNDS',
         'message', 'Insufficient funds in source account'
     ),
     'HARD',

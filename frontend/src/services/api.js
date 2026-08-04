@@ -96,6 +96,12 @@ export const accountAPI = {
   createAccount: (customerId, data) => apiClient.post(`/customers/${customerId}/accounts`, data),
   listAccountsByCustomer: (customerId) => apiClient.get(`/customers/${customerId}/accounts`),
   getAccountById: (accountId) => apiClient.get(`/accounts/${accountId}`),
+  getAccountByNumber: (accountNumber) => apiClient.get(`/accounts/by-number/${accountNumber}`),
+};
+
+// Currency Conversion API
+export const currencyAPI = {
+  convert: (data) => apiClient.post('/convert', data),
 };
 
 

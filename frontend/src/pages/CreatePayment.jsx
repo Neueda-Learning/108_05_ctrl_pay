@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -14,88 +14,245 @@ import {
   Step,
   StepLabel,
   MenuItem,
+  Divider,
 } from '@mui/material';
 import { useForm, Controller } from 'react-hook-form';
-import { paymentAPI } from '../services/api';
+import { paymentAPI, accountAPI, currencyAPI } from '../services/api';
 import { toast } from 'react-toastify';
+import { useCustomer } from '../context/CustomerContext';
 
-const steps = ['Payment Details', 'Review', 'Confirmation'];
+const steps = [
+  'Verify Destination Account',
+  'Currency & Amount',
+  'Review & Authenticate',
+];
 
 function CreatePayment() {
   const navigate = useNavigate();
 
+  // Load customer and accounts from context
+  const { customer, accounts } = useCustomer();
+
+  // Form management
   const {
     control,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors },
   } = useForm({
     defaultValues: {
       sourceAccount: '',
       destinationAccount: '',
       amount: '',
-      currency: 'USD',
+      pin: '',
     },
   });
 
+  // UI State
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [paymentId, setPaymentId] = useState(null);
 
-  // Customer account selection state
+  // Source account state
   const [accountOptions, setAccountOptions] = useState([]);
   const [selectedSourceAccount, setSelectedSourceAccount] = useState(null);
 
+  // Destination account state after verification
+  const [destinationAccountData, setDestinationAccountData] = useState(null);
+  const [verifyingDestination, setVerifyingDestination] = useState(false);
+  const [destinationVerified, setDestinationVerified] = useState(false);
+
+  // Currency conversion state
+  const [sourceCurrency, setSourceCurrency] = useState(null);
+  const [destinationCurrency, setDestinationCurrency] = useState(null);
+  const [convertedAmount, setConvertedAmount] = useState(null);
+  const [exchangeRate, setExchangeRate] = useState(null);
+  const [convertingCurrency, setConvertingCurrency] = useState(false);
+
   const formValues = watch();
 
-  const getAccountValue = (account) => {
-    return account.accountNumber || account.id || '';
-  };
-
-  const getAccountLabel = (account) => {
-    return `${account.accountNumber || ''} ${account.accountName ? `- ${account.accountName}` : ''}`;
-  };
-
-  const onSubmit = async (data) => {
-    if (activeStep === 0) {
-      setActiveStep(1);
-      return;
+  // Populate source account options from customer accounts
+  useEffect(() => {
+    if (accounts && accounts.length > 0) {
+      setAccountOptions(accounts);
+    } else {
+      setAccountOptions([]);
+      setSelectedSourceAccount(null);
     }
+  }, [accounts]);
 
-    if (activeStep === 1) {
-      setActiveStep(2);
+  // Set source currency when source account is selected
+  useEffect(() => {
+    if (selectedSourceAccount) {
+      setSourceCurrency(selectedSourceAccount.currency);
+    }
+  }, [selectedSourceAccount]);
+
+  // Helper: Get account display value
+  const getAccountValue = (account) => {
+    return account.accountNumber;
+  };
+
+  // Helper: Get account display label
+  const getAccountLabel = (account) => {
+    return `${account.accountNumber} - ${account.accountName || 'Account'}`;
+  };
+
+  /**
+   * STEP 1: Verify destination account exists
+   * Call backend to validate destination account number
+   */
+  const verifyDestinationAccount = async () => {
+    if (!formValues.destinationAccount) {
+      toast.error('Please enter a destination account number');
       return;
     }
 
     try {
-      setLoading(true);
+      setVerifyingDestination(true);
 
-      const response = await paymentAPI.createPayment({
-        sourceAccount: data.sourceAccount,
-        destinationAccount: data.destinationAccount,
-        amount: parseFloat(data.amount),
-        currency: data.currency,
-        idempotencyKey: `payment-${Date.now()}`,
-      });
-
-      setPaymentId(response.data.id);
-
-      toast.success(
-        'Payment created successfully! Redirecting to processing...'
+      const response = await accountAPI.getAccountByNumber(
+        formValues.destinationAccount
       );
 
-      setTimeout(() => {
-        navigate(`/payment/process/${response.data.id}`);
-      }, 1500);
+      setDestinationAccountData(response.data);
+      setDestinationCurrency(response.data.currency);
+      setDestinationVerified(true);
 
+      toast.success('Destination account verified!');
+
+      // Move to next step
+      setTimeout(() => setActiveStep(1), 500);
     } catch (error) {
-      console.error('Error creating payment:', error);
+      console.error('Error verifying destination account:', error);
+      setDestinationVerified(false);
       toast.error(
-        error.response?.data?.message || 'Error creating payment'
+        error.response?.data?.message ||
+          'Destination account not found. Please enter a valid account number.'
       );
-      setActiveStep(0);
     } finally {
-      setLoading(false);
+      setVerifyingDestination(false);
+    }
+  };
+
+  /**
+   * STEP 2: Convert currency when amount changes
+   */
+  useEffect(() => {
+    const convertCurrency = async () => {
+      if (
+        !formValues.amount ||
+        formValues.amount <= 0 ||
+        !sourceCurrency ||
+        !destinationCurrency
+      ) {
+        setConvertedAmount(null);
+        setExchangeRate(null);
+        return;
+      }
+
+      try {
+        setConvertingCurrency(true);
+
+        const response = await currencyAPI.convert({
+          amount: parseFloat(formValues.amount),
+          sourceCurrency: sourceCurrency,
+          destinationCurrency: destinationCurrency,
+        });
+
+        setExchangeRate(response.data.exchangeRate);
+        setConvertedAmount(response.data.convertedAmount);
+      } catch (error) {
+        console.error('Error converting currency:', error);
+        setExchangeRate(null);
+        setConvertedAmount(null);
+      } finally {
+        setConvertingCurrency(false);
+      }
+    };
+
+    convertCurrency();
+  }, [formValues.amount, sourceCurrency, destinationCurrency]);
+
+  /**
+   * Handle form submission
+   */
+  const onSubmit = async (data) => {
+    // Validate customer is loaded
+    if (!customer) {
+      toast.error('Please load a customer first by going to the Dashboard');
+      return;
+    }
+
+    // Validate source account is selected
+    if (!data.sourceAccount) {
+      toast.error('Please select a source account');
+      return;
+    }
+
+    // Step 1: Verify destination (if not already verified)
+    if (activeStep === 0) {
+      await verifyDestinationAccount();
+      return;
+    }
+
+    // Step 2: Move to review
+    if (activeStep === 1) {
+      // Validate amount
+      if (!data.amount || parseFloat(data.amount) <= 0) {
+        toast.error('Please enter a valid amount');
+        return;
+      }
+
+      // Validate conversion happened
+      if (!convertedAmount) {
+        toast.error('Unable to convert currency. Please try again.');
+        return;
+      }
+
+      setActiveStep(2);
+      return;
+    }
+
+    // Step 3: Submit payment
+    if (activeStep === 2) {
+      // Validate PIN
+      if (!data.pin) {
+        toast.error('Please enter your PIN');
+        return;
+      }
+
+      try {
+        setLoading(true);
+
+        // Create payment with existing API
+        const response = await paymentAPI.createPayment({
+          sourceAccount: data.sourceAccount,
+          destinationAccount: data.destinationAccount,
+          amount: parseFloat(data.amount),
+          currency: sourceCurrency,
+          idempotencyKey: `payment-${Date.now()}`,
+        });
+
+        setPaymentId(response.data.id);
+
+        toast.success(
+          'Payment created successfully! Redirecting to processing...'
+        );
+
+        setTimeout(() => {
+          navigate(`/payment/process/${response.data.id}`);
+        }, 1500);
+      } catch (error) {
+        console.error('Error creating payment:', error);
+        toast.error(
+          error.response?.data?.message || 'Error creating payment'
+        );
+        setActiveStep(0);
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
@@ -112,12 +269,28 @@ function CreatePayment() {
         Create New Payment
       </Typography>
 
-      <Grid container spacing={3}>
+      {/* Customer Load Alert */}
+      {!customer && (
+        <Alert severity="warning" sx={{ mb: 3 }}>
+          ⚠️ No customer loaded. Please go to the Dashboard and load a customer
+          first.
+        </Alert>
+      )}
 
+      {/* Customer Info Alert */}
+      {customer && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          ✓ Customer: <strong>{customer.name}</strong> ({customer.customerId}) -
+          {' '}
+          {accountOptions.length} account(s) available
+        </Alert>
+      )}
+
+      <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
           <Card>
             <CardContent>
-
+              {/* Stepper */}
               <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
                 {steps.map((label) => (
                   <Step key={label}>
@@ -125,7 +298,6 @@ function CreatePayment() {
                   </Step>
                 ))}
               </Stepper>
-
 
               {paymentId && (
                 <Alert severity="success" sx={{ mb: 3 }}>
@@ -136,23 +308,19 @@ function CreatePayment() {
 
               <form onSubmit={handleSubmit(onSubmit)}>
 
+                {/* STEP 1: DESTINATION ACCOUNT VERIFICATION */}
                 {activeStep === 0 && (
                   <Box>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: 600, mb: 3 }}
+                    >
+                      Payment Information
+                    </Typography>
 
                     <Grid container spacing={2}>
-
-                      <Grid item xs={12}>
-                        <Typography
-                          variant="subtitle1"
-                          sx={{ fontWeight: 600, mb: 2 }}
-                        >
-                          Payment Information
-                        </Typography>
-                      </Grid>
-
-
+                      {/* Source Account Selection (PRESERVED FROM EXISTING) */}
                       <Grid item xs={12} sm={6}>
-
                         <Controller
                           name="sourceAccount"
                           control={control}
@@ -160,38 +328,39 @@ function CreatePayment() {
                             required: 'Source account is required',
                           }}
                           render={({ field }) => (
-
                             <TextField
                               {...field}
                               label="From Account"
                               select
                               fullWidth
-                              disabled={accountOptions.length === 0}
+                              disabled={
+                                accountOptions.length === 0 || !customer
+                              }
                               error={!!errors.sourceAccount}
-                              helperText={errors.sourceAccount?.message}
+                              helperText={
+                                !customer
+                                  ? 'Load a customer first'
+                                  : accountOptions.length === 0
+                                  ? 'No accounts available for this customer'
+                                  : errors.sourceAccount?.message
+                              }
                               onChange={(e) => {
                                 field.onChange(e);
 
-                                const selected =
-                                  accountOptions.find(
-                                    (acc) =>
-                                      getAccountValue(acc) ===
-                                      e.target.value
-                                  );
+                                const selected = accountOptions.find(
+                                  (acc) =>
+                                    getAccountValue(acc) === e.target.value
+                                );
 
                                 setSelectedSourceAccount(selected);
                               }}
                             >
-
                               <MenuItem value="">
                                 Select a customer account
                               </MenuItem>
 
-
                               {accountOptions.map((account) => {
-
-                                const value =
-                                  getAccountValue(account);
+                                const value = getAccountValue(account);
 
                                 return (
                                   <MenuItem
@@ -201,30 +370,51 @@ function CreatePayment() {
                                     {getAccountLabel(account)}
                                   </MenuItem>
                                 );
-
                               })}
-
-
                             </TextField>
-
                           )}
                         />
-
                       </Grid>
 
+                      {/* Source Account Info */}
+                      {selectedSourceAccount && (
+                        <Grid item xs={12} sm={6}>
+                          <Box
+                            sx={{
+                              p: 2,
+                              border: '1px solid #e0e0e0',
+                              borderRadius: 1,
+                              backgroundColor: '#f5f5f5',
+                            }}
+                          >
+                            <Typography variant="caption" color="textSecondary">
+                              Source Account Currency
+                            </Typography>
+                            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                              {selectedSourceAccount.currency}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              {selectedSourceAccount.bankName}
+                            </Typography>
+                          </Box>
+                        </Grid>
+                      )}
 
-
+                      {/* Destination Account Input */}
                       <Grid item xs={12} sm={6}>
-
                         <Controller
                           name="destinationAccount"
                           control={control}
                           rules={{
                             required:
                               'Destination account is required',
+                            pattern: {
+                              value: /^[0-9]{12}$/,
+                              message:
+                                'Account number must be exactly 12 digits',
+                            },
                           }}
                           render={({ field }) => (
-
                             <TextField
                               {...field}
                               label="To Account"
@@ -234,28 +424,121 @@ function CreatePayment() {
                               helperText={
                                 errors.destinationAccount?.message
                               }
+                              disabled={verifyingDestination}
                             />
-
                           )}
                         />
-
                       </Grid>
 
-
-
+                      {/* Verify & Destination Account Info */}
                       <Grid item xs={12} sm={6}>
+                        {!destinationVerified ? (
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            fullWidth
+                            onClick={() => handleSubmit(onSubmit)()}
+                            disabled={
+                              verifyingDestination ||
+                              !formValues.destinationAccount
+                            }
+                          >
+                            {verifyingDestination ? (
+                              <>
+                                <CircularProgress size={20} sx={{ mr: 1 }} />
+                                Verifying...
+                              </>
+                            ) : (
+                              'Verify Destination'
+                            )}
+                          </Button>
+                        ) : (
+                          <Box
+                            sx={{
+                              p: 2,
+                              border: '1px solid #4caf50',
+                              borderRadius: 1,
+                              backgroundColor: '#e8f5e9',
+                            }}
+                          >
+                            <Typography variant="caption" sx={{ color: '#2e7d32' }}>
+                              ✓ Destination Account Verified
+                            </Typography>
+                            <Typography
+                              variant="h6"
+                              sx={{ fontWeight: 700, color: '#2e7d32' }}
+                            >
+                              {destinationAccountData?.currency}
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary">
+                              {destinationAccountData?.bankName}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Grid>
+                    </Grid>
 
+                  </Box>
+                )}
+
+
+
+                {/* STEP 2: CURRENCY & AMOUNT */}
+                {activeStep === 1 && (
+                  <Box>
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: 600, mb: 3 }}
+                    >
+                      Currency & Amount
+                    </Typography>
+
+                    <Grid container spacing={2}>
+                      {/* Source Currency Info */}
+                      <Grid item xs={12} sm={6}>
+                        <Box
+                          sx={{
+                            p: 2,
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 1,
+                            backgroundColor: '#f5f5f5',
+                            mb: 2,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            From Account
+                          </Typography>
+                          <Typography variant="body2">
+                            {selectedSourceAccount?.accountNumber}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            Currency
+                          </Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            {sourceCurrency}
+                          </Typography>
+                        </Box>
+
+                        {/* Amount Input */}
                         <Controller
                           name="amount"
                           control={control}
                           rules={{
                             required: 'Amount is required',
+                            validate: (value) =>
+                              parseFloat(value) > 0 ||
+                              'Amount must be greater than 0',
                           }}
                           render={({ field }) => (
-
                             <TextField
                               {...field}
-                              label="Amount"
+                              label="Amount to Send"
                               type="number"
                               fullWidth
                               inputProps={{
@@ -265,123 +548,239 @@ function CreatePayment() {
                               error={!!errors.amount}
                               helperText={errors.amount?.message}
                             />
-
                           )}
                         />
-
                       </Grid>
 
-
-
+                      {/* Destination Currency Info & Conversion */}
                       <Grid item xs={12} sm={6}>
+                        <Box
+                          sx={{
+                            p: 2,
+                            border: '1px solid #e0e0e0',
+                            borderRadius: 1,
+                            backgroundColor: '#f5f5f5',
+                            mb: 2,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            To Account
+                          </Typography>
+                          <Typography variant="body2">
+                            {formValues.destinationAccount}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            Currency
+                          </Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            {destinationCurrency}
+                          </Typography>
+                        </Box>
 
-                        <Controller
-                          name="currency"
-                          control={control}
-                          render={({ field }) => (
+                        {/* Conversion Result */}
+                        {formValues.amount && convertingCurrency && (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <CircularProgress size={24} />
+                          </Box>
+                        )}
 
-                            <TextField
-                              {...field}
-                              label="Currency"
-                              select
-                              fullWidth
+                        {formValues.amount && convertedAmount && !convertingCurrency && (
+                          <Box
+                            sx={{
+                              p: 2,
+                              border: '1px solid #2196f3',
+                              borderRadius: 1,
+                              backgroundColor: '#e3f2fd',
+                            }}
+                          >
+                            <Typography
+                              variant="caption"
+                              sx={{ color: '#1565c0' }}
                             >
+                              Exchange Rate
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 600,
+                                color: '#1565c0',
+                                mb: 1,
+                              }}
+                            >
+                              1 {sourceCurrency} ={' '}
+                              {parseFloat(exchangeRate).toFixed(4)}{' '}
+                              {destinationCurrency}
+                            </Typography>
 
-                              {[
-                                'USD',
-                                'EUR',
-                                'GBP',
-                                'JPY',
-                                'AUD',
-                              ].map((option) => (
+                            <Divider sx={{ my: 1 }} />
 
-                                <MenuItem
-                                  key={option}
-                                  value={option}
-                                >
-                                  {option}
-                                </MenuItem>
-
-                              ))}
-
-                            </TextField>
-
-                          )}
-                        />
-
+                            <Typography
+                              variant="caption"
+                              sx={{ color: '#1565c0' }}
+                            >
+                              Receiver Gets
+                            </Typography>
+                            <Typography
+                              variant="h6"
+                              sx={{
+                                fontWeight: 700,
+                                color: '#1565c0',
+                              }}
+                            >
+                              {parseFloat(convertedAmount).toFixed(2)}{' '}
+                              {destinationCurrency}
+                            </Typography>
+                          </Box>
+                        )}
                       </Grid>
-
-
                     </Grid>
-
                   </Box>
+
                 )}
 
 
 
-                {activeStep === 1 && (
-
+                {/* STEP 3: REVIEW & AUTHENTICATE */}
+                {activeStep === 2 && (
                   <Box>
-
                     <Typography
                       variant="subtitle1"
+                      sx={{ fontWeight: 600, mb: 3 }}
+                    >
+                      Review & Confirm Payment
+                    </Typography>
+
+                    {/* Payment Details Review */}
+                    <Box
+                      sx={{
+                        p: 2,
+                        border: '1px solid #e0e0e0',
+                        borderRadius: 1,
+                        mb: 3,
+                      }}
+                    >
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6}>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            From Account
+                          </Typography>
+                          <Typography variant="body1">
+                            {getAccountLabel(selectedSourceAccount)}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            To Account
+                          </Typography>
+                          <Typography variant="body1">
+                            {formValues.destinationAccount}
+                          </Typography>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Divider />
+                        </Grid>
+
+                        <Grid item xs={12} sm={6}>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            You Send
+                          </Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            {parseFloat(formValues.amount).toFixed(2)}{' '}
+                            {sourceCurrency}
+                          </Typography>
+                        </Grid>
+                        <Grid item xs={12} sm={6}>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            They Receive
+                          </Typography>
+                          <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                            {parseFloat(convertedAmount).toFixed(2)}{' '}
+                            {destinationCurrency}
+                          </Typography>
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Divider />
+                        </Grid>
+
+                        <Grid item xs={12}>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            Exchange Rate
+                          </Typography>
+                          <Typography variant="body2">
+                            1 {sourceCurrency} ={' '}
+                            {parseFloat(exchangeRate).toFixed(4)}{' '}
+                            {destinationCurrency}
+                          </Typography>
+                        </Grid>
+                      </Grid>
+                    </Box>
+
+                    {/* PIN Authentication */}
+                    <Typography
+                      variant="subtitle2"
                       sx={{ fontWeight: 600, mb: 2 }}
                     >
-                      Review Payment Details
+                      Account Authentication
                     </Typography>
 
+                    <Controller
+                      name="pin"
+                      control={control}
+                      rules={{
+                        required: 'PIN is required',
+                        pattern: {
+                          value: /^[0-9]{4,6}$/,
+                          message: 'PIN must be 4 to 6 digits',
+                        },
+                      }}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Enter Account PIN"
+                          type="password"
+                          fullWidth
+                          placeholder="Enter 4-6 digit PIN"
+                          error={!!errors.pin}
+                          helperText={errors.pin?.message}
+                          sx={{ mb: 2 }}
+                        />
+                      )}
+                    />
 
-                    <Typography>
-                      From Account:
-                      {' '}
-                      {
-                        selectedSourceAccount
-                          ? getAccountLabel(selectedSourceAccount)
-                          : formValues.sourceAccount
-                      }
-                    </Typography>
-
-
-                    <Typography>
-                      To Account:
-                      {' '}
-                      {formValues.destinationAccount}
-                    </Typography>
-
-
-                    <Typography>
-                      Amount:
-                      {' '}
-                      {formValues.amount}
-                      {' '}
-                      {formValues.currency}
-                    </Typography>
-
-
+                    <Alert severity="info">
+                      ℹ️ Your PIN verifies this is an authorized transaction.
+                      Never share your PIN with anyone.
+                    </Alert>
                   </Box>
 
                 )}
 
 
 
-                {activeStep === 2 && (
-
-                  <Box sx={{ textAlign: 'center', py: 3 }}>
-
-                    <Typography variant="h6">
-                      Confirm and Submit
-                    </Typography>
-
-                    <Typography>
-                      Click submit to create the payment
-                    </Typography>
-
-                  </Box>
-
-                )}
-
-
-
+                {/* Navigation Buttons */}
                 <Box
                   sx={{
                     display: 'flex',
@@ -389,7 +788,6 @@ function CreatePayment() {
                     mt: 4,
                   }}
                 >
-
                   <Button
                     variant="outlined"
                     onClick={handleBack}
@@ -398,9 +796,7 @@ function CreatePayment() {
                     Back
                   </Button>
 
-
                   <Box sx={{ display: 'flex', gap: 1 }}>
-
                     <Button
                       variant="outlined"
                       onClick={() => navigate('/payments')}
@@ -409,40 +805,30 @@ function CreatePayment() {
                       Cancel
                     </Button>
 
-
                     <Button
                       type="submit"
                       variant="contained"
-                      disabled={loading}
-                    >
-
-                      {
-                        loading
-                          ? <CircularProgress size={24}/>
-                          : activeStep === steps.length - 1
-                            ? 'Submit'
-                            : 'Next'
+                      disabled={
+                        loading ||
+                        !customer ||
+                        (activeStep === 0 && accountOptions.length === 0)
                       }
-
+                    >
+                      {loading ? (
+                        <CircularProgress size={24} />
+                      ) : activeStep === steps.length - 1 ? (
+                        'Submit Payment'
+                      ) : (
+                        'Next'
+                      )}
                     </Button>
-
-
                   </Box>
-
-
                 </Box>
-
-
               </form>
-
-
             </CardContent>
           </Card>
         </Grid>
-
-
       </Grid>
-
     </Box>
   );
 }

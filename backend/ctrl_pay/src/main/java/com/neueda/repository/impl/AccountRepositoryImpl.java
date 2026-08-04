@@ -33,24 +33,25 @@ public class AccountRepositoryImpl implements AccountRepository {
     @Override
     public AccountRecord save(AccountRecord account) {
         String sql = """
-            INSERT INTO accounts (customer_id, account_name, account_balance, account_status, currency, account_opening_date, last_updated, ifsc_code, account_location, bank_name, account_pin_hash)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO accounts (customer_id, account_number, account_name, account_balance, account_status, currency, account_opening_date, last_updated, ifsc_code, account_location, bank_name, account_pin_hash)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
 
         KeyHolder keyHolder = new GeneratedKeyHolder();
         jdbcTemplate.update(connection -> {
             var ps = connection.prepareStatement(sql, new String[]{"account_id"});
             ps.setLong(1, account.customerId());
-            ps.setString(2, account.accountName());
-            ps.setBigDecimal(3, account.accountBalance());
-            ps.setString(4, account.accountStatus().name());
-            ps.setString(5, account.currency());
-            ps.setObject(6, account.accountOpeningDate());
-            ps.setObject(7, account.lastUpdated());
-            ps.setString(8, account.ifscCode());
-            ps.setString(9, account.accountLocation());
-            ps.setString(10, account.bankName());
-            ps.setString(11, account.accountPin());
+            ps.setString(2, account.accountNumber());
+            ps.setString(3, account.accountName());
+            ps.setBigDecimal(4, account.accountBalance());
+            ps.setString(5, account.accountStatus().name());
+            ps.setString(6, account.currency());
+            ps.setObject(7, account.accountOpeningDate());
+            ps.setObject(8, account.lastUpdated());
+            ps.setString(9, account.ifscCode());
+            ps.setString(10, account.accountLocation());
+            ps.setString(11, account.bankName());
+            ps.setString(12, account.accountPin());
             return ps;
         }, keyHolder);
 
@@ -58,6 +59,7 @@ public class AccountRepositoryImpl implements AccountRepository {
         return new AccountRecord(
             generatedId,
             account.customerId(),
+            account.accountNumber(),
             account.accountName(),
             account.accountBalance(),
             account.accountStatus(),
@@ -72,9 +74,38 @@ public class AccountRepositoryImpl implements AccountRepository {
     }
 
     @Override
+    public AccountRecord update(AccountRecord account) {
+        String sql = """
+            UPDATE accounts 
+            SET customer_id=?, account_number=?, account_name=?, account_balance=?, account_status=?, 
+                currency=?, account_opening_date=?, last_updated=?, ifsc_code=?, account_location=?, 
+                bank_name=?, account_pin_hash=?
+            WHERE account_id=?
+            """;
+
+        jdbcTemplate.update(sql,
+            account.customerId(),
+            account.accountNumber(),
+            account.accountName(),
+            account.accountBalance(),
+            account.accountStatus().name(),
+            account.currency(),
+            account.accountOpeningDate(),
+            account.lastUpdated(),
+            account.ifscCode(),
+            account.accountLocation(),
+            account.bankName(),
+            account.accountPin(),
+            account.accountId()
+        );
+
+        return account;
+    }
+
+    @Override
     public Optional<AccountRecord> findById(Long accountId) {
         String sql = """
-            SELECT account_id, customer_id, account_name, account_balance, account_status, currency, account_opening_date,
+            SELECT account_id, customer_id, account_number, account_name, account_balance, account_status, currency, account_opening_date,
                    last_updated, ifsc_code, account_location, bank_name, account_pin_hash
             FROM accounts
             WHERE account_id = ?
@@ -86,7 +117,7 @@ public class AccountRepositoryImpl implements AccountRepository {
     @Override
     public List<AccountRecord> findByCustomerId(Long customerId) {
         String sql = """
-            SELECT account_id, customer_id, account_name, account_balance, account_status, currency, account_opening_date,
+            SELECT account_id, customer_id, account_number, account_name, account_balance, account_status, currency, account_opening_date,
                    last_updated, ifsc_code, account_location, bank_name, account_pin_hash
             FROM accounts
             WHERE customer_id = ?
@@ -95,6 +126,19 @@ public class AccountRepositoryImpl implements AccountRepository {
         return jdbcTemplate.query(sql, ROW_MAPPER, customerId);
     }
 
+    @Override
+    public Optional<AccountRecord> findByAccountNumber(String accountNumber) {
+        String sql = """
+            SELECT account_id, customer_id, account_number, account_name, account_balance, account_status, currency, account_opening_date,
+                   last_updated, ifsc_code, account_location, bank_name, account_pin_hash
+            FROM accounts
+            WHERE account_number = ?
+            """;
+        List<AccountRecord> results = jdbcTemplate.query(sql, ROW_MAPPER, accountNumber);
+        return results.isEmpty() ? Optional.empty() : Optional.of(results.get(0));
+    }
+
+
     private static class AccountRowMapper implements RowMapper<AccountRecord> {
         @Override
         public AccountRecord mapRow(ResultSet rs, int rowNum) throws SQLException {
@@ -102,6 +146,7 @@ public class AccountRepositoryImpl implements AccountRepository {
             return new AccountRecord(
                 rs.getLong("account_id"),
                 rs.getLong("customer_id"),
+                rs.getString("account_number"),
                 rs.getString("account_name"),
                 rs.getBigDecimal("account_balance"),
                 AccountStatus.valueOf(rs.getString("account_status")),

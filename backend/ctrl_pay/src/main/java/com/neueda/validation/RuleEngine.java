@@ -31,6 +31,12 @@ import com.neueda.validation.rules.ValidationRule.ValidationRuleResult;
 @Component
 public class RuleEngine {
     
+    private final RuleFactory ruleFactory;
+    
+    public RuleEngine(RuleFactory ruleFactory) {
+        this.ruleFactory = ruleFactory;
+    }
+    
     /**
      * Validate a payment against all provided rules.
      * 
@@ -43,8 +49,8 @@ public class RuleEngine {
         
         for (ValidationRuleRecord rule : rules) {
             try {
-                // 1. Instantiate rule implementation based on rule type
-                ValidationRule ruleImplementation = RuleFactory.createRule(rule.ruleType());
+                // 1. Instantiate rule implementation based on rule type using RuleFactory
+                ValidationRule ruleImplementation = ruleFactory.createRule(rule.ruleType());
                 
                 // 2. Execute the rule
                 ValidationRuleResult ruleResult = ruleImplementation.execute(payment, rule.ruleDefinition());

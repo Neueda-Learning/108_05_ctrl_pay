@@ -30,10 +30,11 @@ public enum RuleType {
     ACCOUNT_DIFFERENCE("Account Difference Validation"),
     
     /**
-     * Simulates checking if source account has sufficient funds (mock implementation).
-     * Rule Parameters: failure_rate (0.0-1.0)
+     * Validates that source account has sufficient funds for the payment.
+     * Performs real balance validation by checking actual account data.
+     * Rule Parameters: none (uses account data from database)
      */
-    MOCK_SUFFICIENT_FUNDS("Mock Sufficient Funds Validation");
+    SUFFICIENT_FUNDS("Sufficient Funds Validation");
 
     private final String description;
 

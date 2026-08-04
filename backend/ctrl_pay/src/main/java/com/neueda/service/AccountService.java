@@ -49,6 +49,7 @@ public class AccountService {
         String accountPin = request.accountPin();
         AccountRecord accountToSave = AccountRecord.create(
             customerId,
+            request.accountNumber(),
             request.accountName(),
             request.accountBalance(),
             request.currency(),
@@ -64,6 +65,10 @@ public class AccountService {
 
     public Optional<AccountRecord> getAccountById(Long accountId) {
         return accountRepository.findById(accountId);
+    }
+
+    public Optional<AccountRecord> getAccountByAccountNumber(String accountNumber) {
+        return accountRepository.findByAccountNumber(accountNumber);
     }
 
     public List<AccountRecord> getAccountsByCustomerId(Long customerId) {

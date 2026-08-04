@@ -65,10 +65,27 @@ public class AccountController {
         return ResponseEntity.ok(toResponse(account));
     }
 
+    /**
+     * Retrieve account by account number (12-digit unique identifier).
+     * 
+     * Request: GET /api/accounts/by-number/{accountNumber}
+     * 
+     * Response:
+     * - 200 OK: Account found
+     * - 404 Not Found: Account does not exist
+     */
+    @GetMapping("/accounts/by-number/{accountNumber}")
+    public ResponseEntity<AccountResponse> getAccountByAccountNumber(@PathVariable String accountNumber) {
+        AccountRecord account = accountService.getAccountByAccountNumber(accountNumber)
+            .orElseThrow(() -> new AccountNotFoundException("Account not found: " + accountNumber));
+        return ResponseEntity.ok(toResponse(account));
+    }
+
     private AccountResponse toResponse(AccountRecord account) {
         return new AccountResponse(
             account.accountId(),
             account.customerId(),
+            account.accountNumber(),
             account.accountName(),
             account.accountBalance(),
             account.accountStatus(),

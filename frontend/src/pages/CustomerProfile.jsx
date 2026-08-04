@@ -30,6 +30,7 @@ function CustomerProfile() {
 
   const accountForm = useForm({
     defaultValues: {
+      accountNumber: '',
       accountName: '',
       accountBalance: '0',
       accountOpeningDate: getTodayDateString(),
@@ -58,6 +59,7 @@ function CustomerProfile() {
     try {
       setSubmitting(true);
       await accountAPI.createAccount(customer.customerId, {
+        accountNumber: values.accountNumber,
         accountName: values.accountName,
         accountBalance: parseFloat(values.accountBalance),
         accountOpeningDate: values.accountOpeningDate,
@@ -70,6 +72,7 @@ function CustomerProfile() {
 
       toast.success('Account added successfully');
       accountForm.reset({
+        accountNumber: '',
         accountName: '',
         accountBalance: '0',
         accountOpeningDate: getTodayDateString(),
@@ -138,23 +141,23 @@ function CustomerProfile() {
                 <Typography variant="body2" color="text.secondary">
                   No accounts loaded for the selected customer.
                 </Typography>
-              ) : (
-                <Stack spacing={1.5}>
-                  {accounts.map((account) => (
-                    <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {account.accountName}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {account.bankName} | {account.ifscCode}
-                      </Typography>
-                      <Typography variant="body2">
-                        {account.currency} {account.accountBalance}
-                      </Typography>
-                    </Box>
-                  ))}
-                </Stack>
-              )}
+               ) : (
+                 <Stack spacing={1.5}>
+                   {accounts.map((account) => (
+                     <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                         {account.accountNumber} - {account.accountName}
+                       </Typography>
+                       <Typography variant="body2" color="text.secondary">
+                         {account.bankName} | {account.ifscCode}
+                       </Typography>
+                       <Typography variant="body2">
+                         {account.currency} {account.accountBalance}
+                       </Typography>
+                     </Box>
+                   ))}
+                 </Stack>
+               )}
             </CardContent>
           </Card>
         </Grid>
@@ -168,6 +171,29 @@ function CustomerProfile() {
 
               <form onSubmit={accountForm.handleSubmit(onSubmit)}>
                 <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Controller
+                      name="accountNumber"
+                      control={accountForm.control}
+                      rules={{
+                        required: 'Account number is required',
+                        pattern: {
+                          value: /^[0-9]{12}$/,
+                          message: 'Account number must be exactly 12 digits',
+                        },
+                      }}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Account Number"
+                          placeholder="12-digit number"
+                          fullWidth
+                          error={!!accountForm.formState.errors.accountNumber}
+                          helperText={accountForm.formState.errors.accountNumber?.message}
+                        />
+                      )}
+                    />
+                  </Grid>
                   <Grid item xs={12} sm={6}>
                     <Controller
                       name="accountName"

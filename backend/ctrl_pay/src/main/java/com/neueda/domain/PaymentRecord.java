@@ -50,6 +50,24 @@ public record PaymentRecord(
     String currency,
     
     /**
+     * Amount debited from source account (in source account currency).
+     * Set during settlement processing.
+     */
+    BigDecimal sourceAmount,
+    
+    /**
+     * Amount credited to destination account (in destination account currency).
+     * Set during settlement processing after currency conversion.
+     */
+    BigDecimal destinationAmount,
+    
+    /**
+     * Exchange rate applied for cross-currency transfers.
+     * Set during settlement processing.
+     */
+    java.math.BigDecimal exchangeRate,
+    
+    /**
      * Current status in payment lifecycle (CREATED, VALIDATED, SENT, COMPLETED, FAILED).
      */
     @NotNull(message = "Status is required")
@@ -65,6 +83,33 @@ public record PaymentRecord(
      * Human-readable error message if payment failed (null if payment not failed).
      */
     String errorMessage,
+    
+    /**
+     * Number of settlement processing attempts made.
+     * Incremented each time settlement is attempted.
+     */
+    Integer settlementAttemptCount,
+    
+    /**
+     * Maximum allowed settlement attempts before marking payment as FAILED.
+     * Default: 3
+     */
+    Integer maxSettlementAttempts,
+    
+    /**
+     * Timestamp of the last settlement processing attempt.
+     */
+    LocalDateTime lastSettlementAttemptTime,
+    
+    /**
+     * Scheduled time for the next settlement retry if previous attempt failed.
+     */
+    LocalDateTime nextSettlementRetryTime,
+    
+    /**
+     * Timestamp when payment was successfully settled (accounts debited/credited).
+     */
+    LocalDateTime settledAt,
     
     /**
      * Timestamp when payment was created.
@@ -105,9 +150,17 @@ public record PaymentRecord(
             destinationAccount,
             amount,
             currency,
+            null, // sourceAmount - set during settlement
+            null, // destinationAmount - set during settlement
+            null, // exchangeRate - set during settlement
             PaymentStatus.CREATED,
             null, // no error initially
             null, // no error message initially
+            0, // settlementAttemptCount starts at 0
+            3, // maxSettlementAttempts default is 3
+            null, // lastSettlementAttemptTime - null initially
+            null, // nextSettlementRetryTime - null initially
+            null, // settledAt - null initially
             now,
             now
         );
@@ -125,9 +178,17 @@ public record PaymentRecord(
             this.destinationAccount,
             this.amount,
             this.currency,
+            this.sourceAmount,
+            this.destinationAmount,
+            this.exchangeRate,
             PaymentStatus.FAILED,
             errorCode,
             errorMessage,
+            this.settlementAttemptCount,
+            this.maxSettlementAttempts,
+            this.lastSettlementAttemptTime,
+            this.nextSettlementRetryTime,
+            this.settledAt,
             this.createdAt,
             now
         );
@@ -144,9 +205,75 @@ public record PaymentRecord(
             this.destinationAccount,
             this.amount,
             this.currency,
+            this.sourceAmount,
+            this.destinationAmount,
+            this.exchangeRate,
             newStatus,
             this.errorCode,
             this.errorMessage,
+            this.settlementAttemptCount,
+            this.maxSettlementAttempts,
+            this.lastSettlementAttemptTime,
+            this.nextSettlementRetryTime,
+            this.settledAt,
+            this.createdAt,
+            LocalDateTime.now()
+        );
+    }
+    
+    /**
+     * Update settlement tracking fields for retry handling.
+     */
+    public PaymentRecord withSettlementAttempt(LocalDateTime nextRetryTime) {
+        return new PaymentRecord(
+            this.id,
+            this.idempotencyKey,
+            this.sourceAccount,
+            this.destinationAccount,
+            this.amount,
+            this.currency,
+            this.sourceAmount,
+            this.destinationAmount,
+            this.exchangeRate,
+            this.status,
+            this.errorCode,
+            this.errorMessage,
+            this.settlementAttemptCount + 1,
+            this.maxSettlementAttempts,
+            LocalDateTime.now(),
+            nextRetryTime,
+            this.settledAt,
+            this.createdAt,
+            LocalDateTime.now()
+        );
+    }
+    
+    /**
+     * Mark payment as successfully settled with settlement amounts and exchange rate.
+     */
+    public PaymentRecord withSuccessfulSettlement(
+        BigDecimal sourceAmt,
+        BigDecimal destAmt,
+        BigDecimal rate
+    ) {
+        return new PaymentRecord(
+            this.id,
+            this.idempotencyKey,
+            this.sourceAccount,
+            this.destinationAccount,
+            this.amount,
+            this.currency,
+            sourceAmt,
+            destAmt,
+            rate,
+            PaymentStatus.COMPLETED,
+            null,
+            null,
+            this.settlementAttemptCount,
+            this.maxSettlementAttempts,
+            LocalDateTime.now(),
+            null,
+            LocalDateTime.now(),
             this.createdAt,
             LocalDateTime.now()
         );

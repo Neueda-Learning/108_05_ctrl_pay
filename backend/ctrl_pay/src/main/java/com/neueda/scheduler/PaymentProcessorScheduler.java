@@ -1,5 +1,6 @@
 package com.neueda.scheduler;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Random;
 import org.slf4j.Logger;
@@ -13,6 +14,7 @@ import com.neueda.domain.PaymentRecord;
 import com.neueda.domain.PaymentStatus;
 import com.neueda.repository.PaymentRepository;
 import com.neueda.service.PaymentService;
+import com.neueda.service.PaymentSettlementService;
 
 /**
  * Async Payment Processor - Automatically progresses payments through lifecycle stages.
@@ -33,6 +35,7 @@ public class PaymentProcessorScheduler {
     
     private final PaymentRepository paymentRepository;
     private final PaymentService paymentService;
+    private final PaymentSettlementService settlementService;
     private final Random random = new Random();
     
     // Configuration (injected from application.properties)
@@ -42,10 +45,12 @@ public class PaymentProcessorScheduler {
     public PaymentProcessorScheduler(
         PaymentRepository paymentRepository,
         PaymentService paymentService,
+        PaymentSettlementService settlementService,
         PaymentSchedulerProperties schedulerProperties
     ) {
         this.paymentRepository = paymentRepository;
         this.paymentService = paymentService;
+        this.settlementService = settlementService;
         this.intervalMs = schedulerProperties.getIntervalMs();
         this.failureRate = schedulerProperties.getFailureRate();
     }
@@ -113,12 +118,21 @@ public class PaymentProcessorScheduler {
     }
     
     /**
-     * Transition SENT payments to COMPLETED (or randomly FAILED).
-     * Simulates the final payment processing stage.
+     * Process SENT payments with settlement (debit/credit) and retry logic.
      * 
-     * IMPORTANT: NOT @Transactional here. Each payment is processed in its own transaction
-     * via paymentService.processSentPaymentToCompletion() which uses @Transactional(propagation = REQUIRES_NEW).
-     * This ensures independent transaction handling for each payment.
+     * Settlement Lifecycle:
+     * 1. Find SENT payments ready for settlement (first attempt or retry)
+     * 2. Call PaymentSettlementService.settlePayment() for each
+     * 3. Settlement service handles:
+     *    - Atomic debit/credit transactions
+     *    - Retry management with exponential backoff
+     *    - Idempotency checks to prevent double-settlement
+     *    - Distinguishing between retryable and non-retryable failures
+     * 
+     * Each settlement attempt runs in its own transaction (REQUIRES_NEW).
+     * Failed payments with retries remaining are automatically scheduled for next attempt.
+     * 
+     * Runs every N seconds (configured via scheduler.interval-ms).
      */
     @Scheduled(fixedRateString = "${scheduler.interval-ms:5000}", initialDelayString = "${scheduler.initial-delay-ms:2000}")
     public void processSentPayments() {
@@ -133,8 +147,10 @@ public class PaymentProcessorScheduler {
             
             logger.info("Found {} SENT payments to process", sentPayments.size());
             
-            int successCount = 0;
-            int failureCount = 0;
+            int settlementAttempts = 0;
+            int retriesScheduled = 0;
+            int completedPayments = 0;
+            int failedPayments = 0;
             int skippedCount = 0;
             
             for (PaymentRecord payment : sentPayments) {
@@ -147,36 +163,76 @@ public class PaymentProcessorScheduler {
                         continue;
                     }
                     
+                    // Check if this payment is ready for settlement attempt
+                    boolean readyForSettlement = isReadyForSettlement(payment);
+                    
+                    if (!readyForSettlement) {
+                        logger.debug("Payment {} not ready for settlement yet. Next retry: {}",
+                            payment.id(), payment.nextSettlementRetryTime());
+                        skippedCount++;
+                        continue;
+                    }
+                    
                     // Simulate network latency
                     simulateLatency();
                     
-                    // Randomly fail based on configured failure rate
-                    if (shouldFail()) {
-                        paymentService.processSentPaymentFailure(payment.id(), 
-                            "PAYMENT_FAILED", 
-                            "Payment failed during processing");
-                        logger.debug("Payment {} marked as FAILED ", payment.id());
-                    } else {
-                        paymentService.processSentPaymentToCompletion(payment.id());
-                        logger.debug("Successfully transitioned payment {} to COMPLETED", payment.id());
+                    // Attempt settlement (service handles retries internally)
+                    settlementService.settlePayment(payment.id());
+                    settlementAttempts++;
+                    
+                    // Check if payment is now completed or still pending retry
+                    PaymentRecord updated = paymentRepository.findById(payment.id())
+                        .orElseThrow(() -> new RuntimeException("Payment disappeared"));
+                    
+                    if (updated.status() == PaymentStatus.COMPLETED) {
+                        completedPayments++;
+                        logger.debug("Payment {} successfully settled and completed", payment.id());
+                    } else if (updated.status() == PaymentStatus.SENT && updated.nextSettlementRetryTime() != null) {
+                        retriesScheduled++;
+                        logger.debug("Payment {} settlement attempt {}/{} failed. Retry scheduled for {}",
+                            payment.id(), 
+                            updated.settlementAttemptCount(), 
+                            updated.maxSettlementAttempts(),
+                            updated.nextSettlementRetryTime());
+                    } else if (updated.status() == PaymentStatus.FAILED) {
+                        failedPayments++;
+                        logger.error("Payment {} settlement failed: {} - {}",
+                            payment.id(), updated.errorCode(), updated.errorMessage());
                     }
                     
-                    successCount++;
-                    
                 } catch (Exception e) {
-                    failureCount++;
-                    logger.error("Failed to process payment {}: {}", payment.id(), e.getMessage(), e);
+                    failedPayments++;
+                    logger.error("Unexpected error processing payment {}: {}", payment.id(), e.getMessage(), e);
                     // Continue processing other payments even if this one fails
                 }
             }
             
-            logger.info("Completed batch processing: {} successful, {} failed, {} skipped out of {} total", 
-                successCount, failureCount, skippedCount, sentPayments.size());
+            logger.info("Completed batch processing: {} settlement attempts, {} completed, {} retries scheduled, {} failed, {} skipped",
+                settlementAttempts, completedPayments, retriesScheduled, failedPayments, skippedCount);
             
         } catch (Exception e) {
             // This catches issues fetching payments, not individual payment processing
             logger.error("Error in processSentPayments scheduler: {}", e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Check if a SENT payment is ready for settlement attempt.
+     * Returns true if:
+     * - Settlement has never been attempted (settlementAttemptCount == 0)
+     * - OR next retry time has arrived (nextSettlementRetryTime <= now)
+     */
+    private boolean isReadyForSettlement(PaymentRecord payment) {
+        if (payment.settlementAttemptCount() == 0) {
+            return true; // First settlement attempt
+        }
+        
+        if (payment.nextSettlementRetryTime() != null && 
+            payment.nextSettlementRetryTime().isBefore(LocalDateTime.now())) {
+            return true; // Retry is ready
+        }
+        
+        return false; // Not ready yet
     }
     
     /**

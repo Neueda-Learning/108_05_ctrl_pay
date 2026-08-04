@@ -36,8 +36,13 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public PaymentRecord save(PaymentRecord payment) {
         String sql = """
-            INSERT INTO payments (idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO payments (idempotency_key, source_account, destination_account, amount, currency, 
+                                  source_amount, destination_amount, exchange_rate,
+                                  status, error_code, error_message, 
+                                  settlement_attempt_count, max_settlement_attempts, 
+                                  last_settlement_attempt_time, next_settlement_retry_time, settled_at,
+                                  created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """;
         
         KeyHolder keyHolder = new GeneratedKeyHolder();
@@ -48,11 +53,19 @@ public class PaymentRepositoryImpl implements PaymentRepository {
             ps.setString(3, payment.destinationAccount());
             ps.setBigDecimal(4, payment.amount());
             ps.setString(5, payment.currency());
-            ps.setString(6, payment.status().name());
-            ps.setString(7, payment.errorCode());
-            ps.setString(8, payment.errorMessage());
-            ps.setObject(9, payment.createdAt());
-            ps.setObject(10, payment.updatedAt());
+            ps.setBigDecimal(6, payment.sourceAmount());
+            ps.setBigDecimal(7, payment.destinationAmount());
+            ps.setBigDecimal(8, payment.exchangeRate());
+            ps.setString(9, payment.status().name());
+            ps.setString(10, payment.errorCode());
+            ps.setString(11, payment.errorMessage());
+            ps.setInt(12, payment.settlementAttemptCount());
+            ps.setInt(13, payment.maxSettlementAttempts());
+            ps.setObject(14, payment.lastSettlementAttemptTime());
+            ps.setObject(15, payment.nextSettlementRetryTime());
+            ps.setObject(16, payment.settledAt());
+            ps.setObject(17, payment.createdAt());
+            ps.setObject(18, payment.updatedAt());
             return ps;
         }, keyHolder);
         
@@ -64,9 +77,17 @@ public class PaymentRepositoryImpl implements PaymentRepository {
             payment.destinationAccount(),
             payment.amount(),
             payment.currency(),
+            null, // sourceAmount - set during settlement
+            null, // destinationAmount - set during settlement
+            null, // exchangeRate - set during settlement
             payment.status(),
             payment.errorCode(),
             payment.errorMessage(),
+            0, // settlementAttemptCount
+            3, // maxSettlementAttempts
+            null, // lastSettlementAttemptTime
+            null, // nextSettlementRetryTime
+            null, // settledAt
             payment.createdAt(),
             payment.updatedAt()
         );
@@ -75,7 +96,14 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public PaymentRecord update(PaymentRecord payment) {
         String sql = """
-            UPDATE payments SET idempotency_key=?, source_account=?, destination_account=?, amount=?, currency=?, status=?, error_code=?, error_message=?, updated_at=? WHERE id=?
+            UPDATE payments SET 
+                idempotency_key=?, source_account=?, destination_account=?, amount=?, currency=?, 
+                source_amount=?, destination_amount=?, exchange_rate=?,
+                status=?, error_code=?, error_message=?, 
+                settlement_attempt_count=?, max_settlement_attempts=?, 
+                last_settlement_attempt_time=?, next_settlement_retry_time=?, settled_at=?,
+                updated_at=? 
+            WHERE id=?
             """;
         
         jdbcTemplate.update(sql,
@@ -84,9 +112,17 @@ public class PaymentRepositoryImpl implements PaymentRepository {
             payment.destinationAccount(),
             payment.amount(),
             payment.currency(),
+            payment.sourceAmount(),
+            payment.destinationAmount(),
+            payment.exchangeRate(),
             payment.status().name(),
             payment.errorCode(),
             payment.errorMessage(),
+            payment.settlementAttemptCount(),
+            payment.maxSettlementAttempts(),
+            payment.lastSettlementAttemptTime(),
+            payment.nextSettlementRetryTime(),
+            payment.settledAt(),
             payment.updatedAt(),
             payment.id()
         );
@@ -97,7 +133,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Optional<PaymentRecord> findById(Long id) {
         String sql = """
-            SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
+            SELECT id, idempotency_key, source_account, destination_account, amount, currency, 
+                   source_amount, destination_amount, exchange_rate,
+                   status, error_code, error_message, 
+                   settlement_attempt_count, max_settlement_attempts, last_settlement_attempt_time, next_settlement_retry_time, settled_at,
+                   created_at, updated_at
             FROM payments
             WHERE id = ?
             """;
@@ -109,7 +149,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public Optional<PaymentRecord> findByIdempotencyKey(String idempotencyKey) {
         String sql = """
-            SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
+            SELECT id, idempotency_key, source_account, destination_account, amount, currency, 
+                   source_amount, destination_amount, exchange_rate,
+                   status, error_code, error_message, 
+                   settlement_attempt_count, max_settlement_attempts, last_settlement_attempt_time, next_settlement_retry_time, settled_at,
+                   created_at, updated_at
             FROM payments
             WHERE idempotency_key = ?
             """;
@@ -124,7 +168,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
         if (status != null) {
             // Status filter provided: only query by specific status
             String sql = """
-                SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
+                SELECT id, idempotency_key, source_account, destination_account, amount, currency, 
+                       source_amount, destination_amount, exchange_rate,
+                       status, error_code, error_message, 
+                       settlement_attempt_count, max_settlement_attempts, last_settlement_attempt_time, next_settlement_retry_time, settled_at,
+                       created_at, updated_at
                 FROM payments
                 WHERE status = ?
                 ORDER BY created_at DESC
@@ -139,7 +187,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
         } else {
             // No status filter: return all payments
             String sql = """
-                SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
+                SELECT id, idempotency_key, source_account, destination_account, amount, currency, 
+                       source_amount, destination_amount, exchange_rate,
+                       status, error_code, error_message, 
+                       settlement_attempt_count, max_settlement_attempts, last_settlement_attempt_time, next_settlement_retry_time, settled_at,
+                       created_at, updated_at
                 FROM payments
                 ORDER BY created_at DESC
                 LIMIT ? OFFSET ?
@@ -165,7 +217,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     ) {
         // Build dynamic SQL query with filters
         StringBuilder sql = new StringBuilder(
-            "SELECT DISTINCT p.id, p.idempotency_key, p.source_account, p.destination_account, p.amount, p.currency, p.status, p.error_code, p.error_message, p.created_at, p.updated_at "
+            "SELECT DISTINCT p.id, p.idempotency_key, p.source_account, p.destination_account, p.amount, p.currency, " +
+            "p.source_amount, p.destination_amount, p.exchange_rate, " +
+            "p.status, p.error_code, p.error_message, " +
+            "p.settlement_attempt_count, p.max_settlement_attempts, p.last_settlement_attempt_time, p.next_settlement_retry_time, p.settled_at, " +
+            "p.created_at, p.updated_at "
         );
         sql.append("FROM payments p ");
         
@@ -226,7 +282,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     @Override
     public List<PaymentRecord> findAll() {
         String sql = """
-            SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
+            SELECT id, idempotency_key, source_account, destination_account, amount, currency, 
+                   source_amount, destination_amount, exchange_rate,
+                   status, error_code, error_message, 
+                   settlement_attempt_count, max_settlement_attempts, last_settlement_attempt_time, next_settlement_retry_time, settled_at,
+                   created_at, updated_at
             FROM payments
             ORDER BY created_at DESC
             """;
@@ -261,6 +321,11 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     private static class PaymentRowMapper implements RowMapper<PaymentRecord> {
         @Override
         public PaymentRecord mapRow(ResultSet rs, int rowNum) throws SQLException {
+            // Handle optional settlement columns that might be NULL
+            Timestamp lastAttemptTs = rs.getTimestamp("last_settlement_attempt_time");
+            Timestamp nextRetryTs = rs.getTimestamp("next_settlement_retry_time");
+            Timestamp settledAtTs = rs.getTimestamp("settled_at");
+            
             return new PaymentRecord(
                 rs.getLong("id"),
                 rs.getString("idempotency_key"),
@@ -268,9 +333,17 @@ public class PaymentRepositoryImpl implements PaymentRepository {
                 rs.getString("destination_account"),
                 rs.getBigDecimal("amount"),
                 rs.getString("currency"),
+                rs.getBigDecimal("source_amount"),
+                rs.getBigDecimal("destination_amount"),
+                rs.getBigDecimal("exchange_rate"),
                 PaymentStatus.valueOf(rs.getString("status")),
                 rs.getString("error_code"),
                 rs.getString("error_message"),
+                rs.getInt("settlement_attempt_count"),
+                rs.getInt("max_settlement_attempts"),
+                lastAttemptTs != null ? lastAttemptTs.toLocalDateTime() : null,
+                nextRetryTs != null ? nextRetryTs.toLocalDateTime() : null,
+                settledAtTs != null ? settledAtTs.toLocalDateTime() : null,
                 rs.getTimestamp("created_at").toLocalDateTime(),
                 rs.getTimestamp("updated_at").toLocalDateTime()
             );

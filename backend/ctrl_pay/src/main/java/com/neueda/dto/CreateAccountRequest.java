@@ -13,6 +13,10 @@ import jakarta.validation.constraints.PositiveOrZero;
  * Request DTO for creating an account under an existing customer.
  */
 public record CreateAccountRequest(
+    @NotBlank(message = "Account number is required")
+    @Pattern(regexp = "^[0-9]{12}$", message = "Account number must be exactly 12 digits")
+    String accountNumber,
+
     @NotBlank(message = "Account name is required")
     String accountName,
 

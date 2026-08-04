@@ -61,9 +61,17 @@ public PaymentRecord retryFailedPayment(Long paymentId) {
         payment.destinationAccount(),
         payment.amount(),
         payment.currency(),
+        payment.sourceAmount(),
+        payment.destinationAmount(),
+        payment.exchangeRate(),
         PaymentStatus.VALIDATED,  // Reset to VALIDATED
         null,  // Clear error code
         null,  // Clear error message
+        0,  // Reset settlement attempt count
+        payment.maxSettlementAttempts(),
+        null,  // Clear last settlement attempt time
+        null,  // Clear next retry time
+        null,  // Clear settled at
         payment.createdAt(),
         LocalDateTime.now()
     );
