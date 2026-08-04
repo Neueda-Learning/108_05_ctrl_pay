@@ -178,8 +178,12 @@ function PaymentProcessing() {
         const updatedPayment = await fetchPaymentStatus();
         setPayment(updatedPayment);
 
+        // If payment reached terminal state, update workflow to show correct UI
         if (updatedPayment.status === 'COMPLETED' || updatedPayment.status === 'FAILED') {
           setAutoProcessing(false);
+          // CRITICAL: Call workflow to update processingPhase and show correct UI
+          // This ensures the spinning loader stops and shows completion/failure state
+          await processPaymentWorkflow(updatedPayment);
         }
       } catch (error) {
         console.error('Polling error:', error);
@@ -189,7 +193,7 @@ function PaymentProcessing() {
     setPollingInterval(interval);
 
     return () => clearInterval(interval);
-  }, [autoProcessing, fetchPaymentStatus]);
+  }, [autoProcessing, fetchPaymentStatus, processPaymentWorkflow]);
 
   if (loading) {
     return (
