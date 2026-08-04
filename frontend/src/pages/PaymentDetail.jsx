@@ -13,7 +13,7 @@ import {
   Stack,
 } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
-import { paymentAPI } from '../services/api';
+import { paymentAPI, fraudAPI } from '../services/api';
 import { format } from 'date-fns';
 
 const statusColors = {
@@ -30,6 +30,7 @@ function PaymentDetail() {
   const [payment, setPayment] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [fraudProbability, setFraudProbability] = useState(null);
 
   useEffect(() => {
     fetchPaymentDetails();
@@ -45,10 +46,39 @@ function PaymentDetail() {
 
       setPayment(paymentRes.data);
       setHistory(Array.isArray(historyRes.data) ? historyRes.data : []);
+
+      if (paymentRes.data?.status === 'COMPLETED') {
+        await fetchFraudProbability(paymentRes.data);
+      } else {
+        setFraudProbability(null);
+      }
     } catch (error) {
       console.error('Error fetching payment details:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchFraudProbability = async (paymentData) => {
+    try {
+      const sourceAmount = Number(paymentData.sourceAmount || paymentData.amount || 0);
+      const destinationAmount = Number(paymentData.destinationAmount || paymentData.amount || 0);
+
+      const payload = {
+        amount: Number(paymentData.amount || 0),
+        oldbalanceOrg: sourceAmount,
+        newbalanceOrig: Math.max(sourceAmount - Number(paymentData.amount || 0), 0),
+        oldbalanceDest: Math.max(destinationAmount - Number(paymentData.amount || 0), 0),
+        newbalanceDest: destinationAmount,
+        transaction_type: 'TRANSFER',
+      };
+
+      const response = await fraudAPI.predict(payload);
+      const probability = Number(response.data?.fraud_probability);
+      setFraudProbability(Number.isNaN(probability) ? null : probability.toFixed(2));
+    } catch (error) {
+      console.error('Error fetching fraud probability:', error);
+      setFraudProbability(null);
     }
   };
 
@@ -260,6 +290,14 @@ function PaymentDetail() {
                     {format(new Date(payment.updatedAt), 'MMM dd, yyyy')}
                   </Typography>
                 </Box>
+                {payment.status === 'COMPLETED' && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                    <Typography variant="body2">Fraud Probability:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {fraudProbability !== null ? `${fraudProbability}%` : 'N/A'}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </CardContent>
           </Card>

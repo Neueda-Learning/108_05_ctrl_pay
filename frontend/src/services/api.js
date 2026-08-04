@@ -14,6 +14,14 @@ const rootApiClient = axios.create({
   baseURL: ROOT_API_BASE_URL,
 });
 
+const FRAUD_API_BASE_URL = process.env.REACT_APP_FRAUD_API_URL || 'http://localhost:5000';
+const fraudApiClient = axios.create({
+  baseURL: FRAUD_API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
 // Payment API
 export const paymentAPI = {
   // Create payment
@@ -102,6 +110,11 @@ export const accountAPI = {
 // Currency Conversion API
 export const currencyAPI = {
   convert: (data) => apiClient.post('/convert', data),
+};
+
+// Fraud API (ML service)
+export const fraudAPI = {
+  predict: (data) => fraudApiClient.post('/predict-json', data),
 };
 
 

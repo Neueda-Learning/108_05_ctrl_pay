@@ -11,7 +11,7 @@ import {
   Alert,
 } from '@mui/material';
 import { Refresh, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
-import { paymentAPI } from '../services/api';
+import { paymentAPI, fraudAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import PaymentStatusFlow from '../components/PaymentStatusFlow';
 
@@ -36,6 +36,7 @@ function PaymentProcessing() {
   const [retryCount, setRetryCount] = useState(0);
   const [autoProcessing, setAutoProcessing] = useState(true);
   const [pollingInterval, setPollingInterval] = useState(null);
+  const [fraudProbability, setFraudProbability] = useState(null);
 
   // Configuration
   const MAX_RETRIES = 3;
@@ -122,6 +123,39 @@ function PaymentProcessing() {
     }
   }, [fetchPaymentStatus, errorDetails]);
 
+  const fetchFraudProbability = useCallback(async (paymentData) => {
+    if (!paymentData || paymentData.status !== 'COMPLETED') {
+      setFraudProbability(null);
+      return;
+    }
+
+    try {
+      const sourceAmount = Number(paymentData.sourceAmount || paymentData.amount || 0);
+      const destinationAmount = Number(paymentData.destinationAmount || paymentData.amount || 0);
+
+      const payload = {
+        amount: Number(paymentData.amount || 0),
+        oldbalanceOrg: sourceAmount,
+        newbalanceOrig: Math.max(sourceAmount - Number(paymentData.amount || 0), 0),
+        oldbalanceDest: Math.max(destinationAmount - Number(paymentData.amount || 0), 0),
+        newbalanceDest: destinationAmount,
+        transaction_type: 'TRANSFER',
+      };
+
+      const response = await fraudAPI.predict(payload);
+      const probability = Number(response.data?.fraud_probability);
+
+      if (!Number.isNaN(probability)) {
+        setFraudProbability(probability.toFixed(2));
+      } else {
+        setFraudProbability(null);
+      }
+    } catch (error) {
+      console.error('Error fetching fraud probability:', error);
+      setFraudProbability(null);
+    }
+  }, []);
+
   /**
    * Handle manual retry
    */
@@ -166,6 +200,12 @@ function PaymentProcessing() {
       processPaymentWorkflow(payment);
     }
   }, [payment, autoProcessing, processPaymentWorkflow]);
+
+  useEffect(() => {
+    if (payment?.status === 'COMPLETED') {
+      fetchFraudProbability(payment);
+    }
+  }, [payment, fetchFraudProbability]);
 
   /**
    * Polling effect: Check payment status periodically
@@ -398,6 +438,16 @@ function PaymentProcessing() {
                     {autoProcessing ? 'Active' : 'Completed'}
                   </Typography>
                 </Box>
+                {payment.status === 'COMPLETED' && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="textSecondary">
+                      Fraud Probability
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {fraudProbability !== null ? `${fraudProbability}%` : 'N/A'}
+                    </Typography>
+                  </Box>
+                )}
                 {errorDetails && (
                   <Box>
                     <Typography variant="caption" color="textSecondary">
