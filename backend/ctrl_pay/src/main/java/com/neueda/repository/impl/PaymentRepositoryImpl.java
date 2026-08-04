@@ -120,20 +120,36 @@ public class PaymentRepositoryImpl implements PaymentRepository {
 
     @Override
     public List<PaymentRecord> findAll(PaymentStatus status, int limit, int offset) {
-        String sql = """
-            SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
-            FROM payments
-            WHERE status = ? OR ? IS NULL
-            ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
-            """;
-        
-        return jdbcTemplate.query(sql, ROW_MAPPER,
-            status != null ? status.name() : null,
-            status != null ? null : 1,
-            limit,
-            offset
-        );
+        // Build dynamic SQL based on whether status filter is provided
+        if (status != null) {
+            // Status filter provided: only query by specific status
+            String sql = """
+                SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
+                FROM payments
+                WHERE status = ?
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """;
+            
+            return jdbcTemplate.query(sql, ROW_MAPPER,
+                status.name(),
+                limit,
+                offset
+            );
+        } else {
+            // No status filter: return all payments
+            String sql = """
+                SELECT id, idempotency_key, source_account, destination_account, amount, currency, status, error_code, error_message, created_at, updated_at
+                FROM payments
+                ORDER BY created_at DESC
+                LIMIT ? OFFSET ?
+                """;
+            
+            return jdbcTemplate.query(sql, ROW_MAPPER,
+                limit,
+                offset
+            );
+        }
     }
 
     @Override

@@ -74,9 +74,18 @@ public class PaymentProcessorScheduler {
             
             int successCount = 0;
             int failureCount = 0;
+            int skippedCount = 0;
             
             for (PaymentRecord payment : validatedPayments) {
                 try {
+                    // DEFENSIVE CHECK: Verify payment status before processing
+                    if (payment.status() != PaymentStatus.VALIDATED) {
+                        skippedCount++;
+                        logger.warn("Expected VALIDATED but found {} for payment id={}. Skipping payment", 
+                            payment.status(), payment.id());
+                        continue;
+                    }
+                    
                     // Simulate network latency
                     simulateLatency();
                     
@@ -94,8 +103,8 @@ public class PaymentProcessorScheduler {
                 }
             }
             
-            logger.info("Completed batch processing: {} successful, {} failed out of {} total", 
-                successCount, failureCount, validatedPayments.size());
+            logger.info("Completed batch processing: {} successful, {} failed, {} skipped out of {} total", 
+                successCount, failureCount, skippedCount, validatedPayments.size());
             
         } catch (Exception e) {
             // This catches issues fetching payments, not individual payment processing
@@ -126,9 +135,18 @@ public class PaymentProcessorScheduler {
             
             int successCount = 0;
             int failureCount = 0;
+            int skippedCount = 0;
             
             for (PaymentRecord payment : sentPayments) {
                 try {
+                    // DEFENSIVE CHECK: Verify payment status before processing
+                    if (payment.status() != PaymentStatus.SENT) {
+                        skippedCount++;
+                        logger.warn("Expected SENT but found {} for payment id={}. Skipping payment", 
+                            payment.status(), payment.id());
+                        continue;
+                    }
+                    
                     // Simulate network latency
                     simulateLatency();
                     
@@ -152,8 +170,8 @@ public class PaymentProcessorScheduler {
                 }
             }
             
-            logger.info("Completed batch processing: {} successful, {} failed out of {} total", 
-                successCount, failureCount, sentPayments.size());
+            logger.info("Completed batch processing: {} successful, {} failed, {} skipped out of {} total", 
+                successCount, failureCount, skippedCount, sentPayments.size());
             
         } catch (Exception e) {
             // This catches issues fetching payments, not individual payment processing
