@@ -49,6 +49,74 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
+
+    /**
+     * Handle CustomerValidationException (400 Bad Request).
+     */
+    @ExceptionHandler(CustomerValidationException.class)
+    public ResponseEntity<ErrorResponse> handleCustomerValidationException(
+        CustomerValidationException ex,
+        WebRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            ex.getErrorCode(),
+            ex.getMessage(),
+            HttpStatus.BAD_REQUEST.value(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
+     * Handle CustomerNotFoundException (404 Not Found).
+     */
+    @ExceptionHandler(CustomerNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleCustomerNotFoundException(
+        CustomerNotFoundException ex,
+        WebRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            "CUSTOMER_NOT_FOUND",
+            ex.getMessage(),
+            HttpStatus.NOT_FOUND.value(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
+
+    /**
+     * Handle AccountValidationException (400 Bad Request).
+     */
+    @ExceptionHandler(AccountValidationException.class)
+    public ResponseEntity<ErrorResponse> handleAccountValidationException(
+        AccountValidationException ex,
+        WebRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            ex.getErrorCode(),
+            ex.getMessage(),
+            HttpStatus.BAD_REQUEST.value(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    /**
+     * Handle AccountNotFoundException (404 Not Found).
+     */
+    @ExceptionHandler(AccountNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAccountNotFoundException(
+        AccountNotFoundException ex,
+        WebRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            "ACCOUNT_NOT_FOUND",
+            ex.getMessage(),
+            HttpStatus.NOT_FOUND.value(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
     
     /**
      * Handle PaymentProcessingException (500 Internal Server Error).
