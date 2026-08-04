@@ -59,6 +59,12 @@ function Dashboard() {
     }
   };
 
+  const handleClear = () => {
+    setCustomerIdInput('');
+    setError('');
+    clearCustomer();
+  };
+
   const handleOpen = (path) => {
     navigate(path);
   };
@@ -91,7 +97,7 @@ function Dashboard() {
                 <Button variant="contained" onClick={handleLoadCustomer} disabled={loadingCustomer}>
                   {loadingCustomer ? 'Loading...' : 'Load Customer'}
                 </Button>
-                <Button variant="outlined" onClick={clearCustomer}>
+                <Button variant="outlined" onClick={handleClear}>
                   Clear
                 </Button>
               </Box>
@@ -126,7 +132,7 @@ function Dashboard() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: 'rgba(25, 118, 210, 0.12)',
+                      backgroundColor: 'rgba(99, 102, 241, 0.15)',
                       color: 'primary.main',
                     }}
                   >

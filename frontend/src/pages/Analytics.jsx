@@ -10,19 +10,63 @@ import {
   MenuItem,
   TextField,
   Typography,
-  Chip,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { format } from 'date-fns';
 import { customerAPI } from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
+import StatusBadge from '../components/StatusBadge';
 
-const statusColors = {
-  CREATED: 'default',
-  VALIDATED: 'info',
-  SENT: 'warning',
-  COMPLETED: 'success',
-  FAILED: 'error',
+const GRID_SX = {
+  border: 'none',
+  background: 'transparent',
+  '& .MuiDataGrid-columnHeaders': {
+    background:    '#1E293B',
+    borderBottom:  '1px solid rgba(255,255,255,0.08)',
+    borderRadius:  0,
+    minHeight:     '48px !important',
+  },
+  '& .MuiDataGrid-columnHeaderTitle': {
+    color:         '#94A3B8',
+    fontWeight:    700,
+    fontSize:      '0.68rem',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+  },
+  '& .MuiDataGrid-columnSeparator': { color: 'rgba(255,255,255,0.08)' },
+  '& .MuiDataGrid-row': {
+    background:  '#0F172A',
+    transition:  'background 0.2s ease',
+    '&:hover':   { background: 'rgba(99,102,241,0.08)' },
+    '&.Mui-selected': {
+      background: 'rgba(99,102,241,0.12)',
+      '&:hover':  { background: 'rgba(99,102,241,0.16)' },
+    },
+  },
+  '& .MuiDataGrid-cell': {
+    color:        '#CBD5E1',
+    fontSize:     '0.875rem',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    display:      'flex',
+    alignItems:   'center',
+  },
+  '& .MuiDataGrid-footerContainer': {
+    background:  '#1E293B',
+    borderTop:   '1px solid rgba(255,255,255,0.08)',
+  },
+  '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+    color:    '#94A3B8',
+    fontSize: '0.8rem',
+  },
+  '& .MuiTablePagination-select': { color: '#CBD5E1' },
+  '& .MuiDataGrid-iconButtonContainer .MuiIconButton-root, & .MuiTablePagination-actions .MuiIconButton-root': {
+    color:     '#64748B',
+    '&:hover': { background: 'rgba(99,102,241,0.1)', color: '#818CF8' },
+    '&.Mui-disabled': { color: '#1E293B' },
+  },
+  '& .MuiDataGrid-overlay': { background: 'rgba(11,17,32,0.85)', color: '#94A3B8' },
+  '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
+  '& .MuiDataGrid-withBorderColor': { borderColor: 'rgba(255,255,255,0.05)' },
 };
 
 function Analytics() {
@@ -106,12 +150,51 @@ function Analytics() {
   };
 
   const summary = useMemo(() => {
-    const total = payments.length;
-    const successful = payments.filter((payment) => payment.status === 'COMPLETED').length;
-    const failed = payments.filter((payment) => payment.status === 'FAILED').length;
-    const pending = total - successful - failed;
+    const total      = payments.length;
+    const successful = payments.filter((p) => p.status === 'COMPLETED').length;
+    const failed     = payments.filter((p) => p.status === 'FAILED').length;
+    const pending    = total - successful - failed;
     return { total, successful, failed, pending };
   }, [payments]);
+
+  const metricCards = [
+    {
+      label:          'Total Payments',
+      value:          summary.total,
+      icon:           '💳',
+      gradient:       'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+      borderGradient: 'rgba(99,102,241,0.55) 0%, rgba(139,92,246,0.30) 100%',
+      glow:           'rgba(99,102,241,0.22)',
+      valueColor:     '#818CF8',
+    },
+    {
+      label:          'Successful',
+      value:          summary.successful,
+      icon:           '✓',
+      gradient:       'linear-gradient(135deg, #10B981 0%, #34D399 100%)',
+      borderGradient: 'rgba(16,185,129,0.55) 0%, rgba(52,211,153,0.30) 100%',
+      glow:           'rgba(16,185,129,0.22)',
+      valueColor:     '#34D399',
+    },
+    {
+      label:          'Failed / Fraud',
+      value:          summary.failed,
+      icon:           '⚠',
+      gradient:       'linear-gradient(135deg, #EF4444 0%, #F97316 100%)',
+      borderGradient: 'rgba(239,68,68,0.55) 0%, rgba(249,115,22,0.30) 100%',
+      glow:           'rgba(239,68,68,0.22)',
+      valueColor:     '#F87171',
+    },
+    {
+      label:          'Pending / Other',
+      value:          summary.pending,
+      icon:           '◷',
+      gradient:       'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
+      borderGradient: 'rgba(245,158,11,0.55) 0%, rgba(251,191,36,0.30) 100%',
+      glow:           'rgba(245,158,11,0.22)',
+      valueColor:     '#FCD34D',
+    },
+  ];
 
   const columns = [
     { field: 'id', headerName: 'Payment ID', width: 140 },
@@ -136,15 +219,8 @@ function Analytics() {
     {
       field: 'status',
       headerName: 'Status',
-      width: 130,
-      renderCell: (params) => (
-        <Chip
-          size="small"
-          label={params.value}
-          color={statusColors[params.value] || 'default'}
-          variant="outlined"
-        />
-      ),
+      width: 140,
+      renderCell: (params) => <StatusBadge status={params.value} />,
     },
     {
       field: 'createdAt',
@@ -197,54 +273,55 @@ function Analytics() {
       </Card>
 
       <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Total Payments
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700 }}>
-                {summary.total}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Successful Payments
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'success.main' }}>
-                {summary.successful}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Failed Payments
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'error.main' }}>
-                {summary.failed}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Typography color="text.secondary" gutterBottom>
-                Pending / Other
-              </Typography>
-              <Typography variant="h4" sx={{ fontWeight: 700, color: 'warning.main' }}>
-                {summary.pending}
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+        {metricCards.map((card) => (
+          <Grid item xs={12} sm={6} md={3} key={card.label}>
+            <Card
+              sx={{
+                background:
+                  `linear-gradient(rgba(11,17,32,0.9), rgba(11,17,32,0.9)) padding-box,` +
+                  `linear-gradient(135deg, ${card.borderGradient}) border-box`,
+                border: '1px solid transparent',
+                boxShadow: `0 20px 40px rgba(0,0,0,0.25), 0 0 30px ${card.glow}`,
+                '&:hover': {
+                  transform: 'translateY(-6px)',
+                  boxShadow: `0 28px 50px rgba(0,0,0,0.35), 0 0 40px ${card.glow}`,
+                  background:
+                    `linear-gradient(rgba(11,17,32,0.95), rgba(11,17,32,0.95)) padding-box,` +
+                    `linear-gradient(135deg, ${card.borderGradient}) border-box`,
+                },
+              }}
+            >
+              <CardContent sx={{ p: 2.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: '#94A3B8', fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase', fontSize: '0.68rem' }}
+                  >
+                    {card.label}
+                  </Typography>
+                  <Box
+                    sx={{
+                      width: 38, height: 38, borderRadius: '10px',
+                      background: card.gradient,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: '1rem', fontWeight: 700, color: '#fff',
+                      boxShadow: `0 4px 16px ${card.glow}`,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {card.icon}
+                  </Box>
+                </Box>
+                <Typography
+                  variant="h3"
+                  sx={{ fontWeight: 800, color: card.valueColor, letterSpacing: -1, lineHeight: 1 }}
+                >
+                  {card.value}
+                </Typography>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       <Card sx={{ mb: 3 }}>
@@ -342,7 +419,7 @@ function Analytics() {
               pageSizeOptions={[10, 25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
               disableRowSelectionOnClick
-              sx={{ border: 'none' }}
+              sx={GRID_SX}
             />
           )}
         </CardContent>

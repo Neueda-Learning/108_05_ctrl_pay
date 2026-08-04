@@ -141,23 +141,23 @@ function CustomerProfile() {
                 <Typography variant="body2" color="text.secondary">
                   No accounts loaded for the selected customer.
                 </Typography>
-               ) : (
-                 <Stack spacing={1.5}>
-                   {accounts.map((account) => (
-                     <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                         {account.accountNumber} - {account.accountName}
-                       </Typography>
-                       <Typography variant="body2" color="text.secondary">
-                         {account.bankName} | {account.ifscCode}
-                       </Typography>
-                       <Typography variant="body2">
-                         {account.currency} {account.accountBalance}
-                       </Typography>
-                     </Box>
-                   ))}
-                 </Stack>
-               )}
+              ) : (
+                <Stack spacing={1.5}>
+                  {accounts.map((account) => (
+                    <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {account.accountName}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {account.bankName} | {account.ifscCode}
+                      </Typography>
+                      <Typography variant="body2">
+                        {account.currency} {account.accountBalance}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
             </CardContent>
           </Card>
         </Grid>
