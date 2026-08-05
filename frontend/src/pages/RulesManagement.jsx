@@ -36,7 +36,6 @@ import { toast } from 'react-toastify';
 import StatusBadge from '../components/StatusBadge';
 
 const RULE_TYPES = [
-  { id: 'CURRENCY_WHITELIST', name: 'Currency Whitelist', icon: '💱' },
   { id: 'AMOUNT_RANGE', name: 'Amount Range', icon: '💰' },
   { id: 'ACCOUNT_FORMAT', name: 'Account Format', icon: '📋' },
   { id: 'ACCOUNT_DIFFERENCE', name: 'Account Difference', icon: '👥' },
@@ -45,11 +44,6 @@ const RULE_TYPES = [
 
 // JSON Schema placeholders for each rule type
 const JSON_SCHEMA_EXAMPLES = {
-  CURRENCY_WHITELIST: {
-    type: 'CURRENCY_WHITELIST',
-    allowed_currencies: ['USD', 'EUR', 'GBP', 'JPY'],
-    message: 'Currency is not supported',
-  },
   AMOUNT_RANGE: {
     type: 'AMOUNT_RANGE',
     min: 0.01,

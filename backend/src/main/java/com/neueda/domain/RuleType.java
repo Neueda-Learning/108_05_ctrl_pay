@@ -12,12 +12,6 @@ public enum RuleType {
     AMOUNT_RANGE("Amount Range Validation"),
     
     /**
-     * Validates that currency is in the supported list.
-     * Rule Parameters: allowed_currencies (array)
-     */
-    CURRENCY_WHITELIST("Currency Whitelist Validation"),
-    
-    /**
      * Validates that account numbers match expected format.
      * Rule Parameters: pattern (regex)
      */

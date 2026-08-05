@@ -141,9 +141,9 @@ CREATE TABLE IF NOT EXISTS payment_status_history (
 -- ========================================
 CREATE TABLE IF NOT EXISTS validation_rules (
     id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Unique rule identifier',
-    name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique rule name (e.g., AMOUNT_RANGE, CURRENCY_WHITELIST)',
+    name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique rule name (e.g., AMOUNT_RANGE, ACCOUNT_FORMAT)',
     description TEXT NULL COMMENT 'Human-readable rule description',
-    rule_type VARCHAR(50) NOT NULL COMMENT 'Rule type: AMOUNT_RANGE, CURRENCY_WHITELIST, ACCOUNT_FORMAT, ACCOUNT_DIFFERENCE, MOCK_SUFFICIENT_FUNDS, etc.',
+    rule_type VARCHAR(50) NOT NULL COMMENT 'Rule type: AMOUNT_RANGE, ACCOUNT_FORMAT, ACCOUNT_DIFFERENCE, SUFFICIENT_FUNDS, etc.',
     rule_definition JSON NOT NULL COMMENT 'Rule parameters stored as JSON (e.g., min, max, allowed_values, pattern)',
     is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Whether rule is currently active',
     severity VARCHAR(20) NOT NULL DEFAULT 'HARD' COMMENT 'HARD (blocks payment) or SOFT (warning only)',
@@ -223,23 +223,7 @@ VALUES (
     TRUE
 ) ON DUPLICATE KEY UPDATE is_active = TRUE;
 
--- Rule 2: Currency Whitelist Validation
-INSERT INTO validation_rules (name, description, rule_type, rule_definition, severity, order_of_execution, is_active)
-VALUES (
-    'CURRENCY_WHITELIST',
-    'Validates that currency is in the supported list',
-    'CURRENCY_WHITELIST',
-    JSON_OBJECT(
-        'type', 'CURRENCY_WHITELIST',
-        'allowed_currencies', JSON_ARRAY('USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 'CHF', 'CNY', 'INR', 'MXN'),
-        'message', 'Currency is not supported'
-    ),
-    'HARD',
-    2,
-    TRUE
-) ON DUPLICATE KEY UPDATE is_active = TRUE;
-
--- Rule 3: Account Format Validation
+-- Rule 2: Account Format Validation
 INSERT INTO validation_rules (name, description, rule_type, rule_definition, severity, order_of_execution, is_active)
 VALUES (
     'ACCOUNT_FORMAT',
@@ -251,11 +235,11 @@ VALUES (
         'message', 'Account number must be exactly 12 digits'
     ),
     'HARD',
-    3,
+    2,
     TRUE
 ) ON DUPLICATE KEY UPDATE is_active = TRUE;
 
--- Rule 4: Account Difference Validation
+-- Rule 3: Account Difference Validation
 INSERT INTO validation_rules (name, description, rule_type, rule_definition, severity, order_of_execution, is_active)
 VALUES (
     'ACCOUNT_DIFFERENCE',
@@ -266,11 +250,11 @@ VALUES (
         'message', 'Source and destination accounts must be different'
     ),
     'HARD',
-    4,
+    3,
     TRUE
 ) ON DUPLICATE KEY UPDATE is_active = TRUE;
 
--- Rule 5: Sufficient Funds Validation
+-- Rule 4: Sufficient Funds Validation
 INSERT INTO validation_rules (name, description, rule_type, rule_definition, severity, order_of_execution, is_active)
 VALUES (
     'SUFFICIENT_FUNDS',
@@ -281,7 +265,7 @@ VALUES (
         'message', 'Insufficient funds in source account'
     ),
     'HARD',
-    5,
+    4,
     TRUE
 ) ON DUPLICATE KEY UPDATE is_active = TRUE;
 

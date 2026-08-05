@@ -10,7 +10,6 @@ import com.neueda.validation.rules.ValidationRule;
 import com.neueda.validation.rules.impl.AccountDifferenceRule;
 import com.neueda.validation.rules.impl.AccountFormatRule;
 import com.neueda.validation.rules.impl.AmountRangeRule;
-import com.neueda.validation.rules.impl.CurrencyWhitelistRule;
 import com.neueda.validation.rules.impl.SufficientFundsRule;
 
 /**
@@ -23,7 +22,7 @@ import com.neueda.validation.rules.impl.SufficientFundsRule;
  * - SUFFICIENT_FUNDS: requires AccountService for real balance validation
  * 
  * Rules that are stateless:
- * - AMOUNT_RANGE, CURRENCY_WHITELIST, ACCOUNT_FORMAT, ACCOUNT_DIFFERENCE
+ * - AMOUNT_RANGE, ACCOUNT_FORMAT, ACCOUNT_DIFFERENCE
  */
 @Component
 public class RuleFactory {
@@ -49,7 +48,6 @@ public class RuleFactory {
         return switch (ruleType) {
             // Stateless rules: no dependencies needed
             case AMOUNT_RANGE -> new AmountRangeRule();
-            case CURRENCY_WHITELIST -> new CurrencyWhitelistRule();
             case ACCOUNT_FORMAT -> new AccountFormatRule();
             case ACCOUNT_DIFFERENCE -> new AccountDifferenceRule();
             

@@ -38,6 +38,9 @@ public class AccountService {
 
     /**
      * Create an account for an existing, active customer profile.
+     * 
+     * Account name is stored as: {CustomerName}-{AccountName}
+     * This combines the customer's name with the user-provided account name
      */
     public AccountRecord createAccount(Long customerId, CreateAccountRequest request) {
         var customer = customerRepository.findById(customerId)
@@ -50,11 +53,14 @@ public class AccountService {
             );
         }
 
+        // Combine customer name with account name: {CustomerName}-{AccountName}
+        String combinedAccountName = customer.name() + "-" + request.accountName();
+
         String accountPin = request.accountPin();
         AccountRecord accountToSave = AccountRecord.create(
             customerId,
             request.accountNumber(),
-            request.accountName(),
+            combinedAccountName,
             request.accountBalance(),
             request.currency(),
             request.accountOpeningDate(),
