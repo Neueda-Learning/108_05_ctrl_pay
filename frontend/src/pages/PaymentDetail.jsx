@@ -158,7 +158,7 @@ function PaymentDetail() {
                         display: 'flex',
                         gap: 2,
                         pb: idx < history.length - 1 ? 2 : 0,
-                        borderBottom: idx < history.length - 1 ? '1px solid #e0e0e0' : 'none',
+                        borderBottom: idx < history.length - 1 ? '1px solid rgba(99,102,241,0.15)' : 'none',
                       }}
                     >
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -181,7 +181,7 @@ function PaymentDetail() {
                             sx={{
                               width: 2,
                               height: 20,
-                              backgroundColor: '#e0e0e0',
+                              backgroundColor: '#1E1B4B',
                               mt: 1,
                             }}
                           />
