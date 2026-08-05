@@ -1,8 +1,10 @@
 from flask import Flask, jsonify, render_template, request
+from flask_cors import CORS
 import pickle
 from pathlib import Path
 
 app = Flask(__name__)
+CORS(app)
 
 # Load trained model
 MODEL_PATH = Path(__file__).resolve().parent / "XGBoostModel.pkl"
