@@ -35,6 +35,7 @@ import {
   Security           as SecurityIcon,
   Menu               as MenuIcon,
   ChevronLeft        as ChevronLeftIcon,
+  PlayCircle         as PlayCircleIcon,
   Logout             as LogoutIcon,
   Psychology         as PsychologyIcon,
   Layers             as LayersIcon,
@@ -83,6 +84,12 @@ const menuSections = [
     label: 'ANALYTICS',
     items: [
       { label: 'Statistics',      icon: TrendingUpIcon,     path: '/statistics'      },
+    ],
+  },
+ {
+    label: 'TOOLS',
+    items: [
+      { label: 'Lifecycle Simulator', icon: PlayCircleIcon,  path: '/simulator'       },
     ],
   },
   {

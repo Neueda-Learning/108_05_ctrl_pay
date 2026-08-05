@@ -17,6 +17,7 @@ import CustomerProfile from './pages/CustomerProfile';
 import Profile from './pages/Profile';
 import FraudDashboard from './pages/FraudDashboard';
 import FraudRulesManagement from './pages/FraudRulesManagement';
+import LifecycleSimulator from './pages/LifecycleSimulator';
 import PlatformOverviewDashboard from './pages/PlatformOverviewDashboard';
 import TransactionDashboard from './pages/TransactionDashboard';
 import FraudAnalyticsDashboard from './pages/FraudAnalyticsDashboard';
@@ -49,6 +50,7 @@ function AppShell() {
             <Route path="/statistics" element={<Analytics />} />
             <Route path="/analytics" element={<Navigate to="/statistics" replace />} />
             <Route path="/fraud" element={<FraudDashboard />} />
+              <Route path="/simulator" element={<LifecycleSimulator />} />
 
             {/* Dashboard Routes */}
             <Route path="/dashboard/overview" element={<PlatformOverviewDashboard />} />

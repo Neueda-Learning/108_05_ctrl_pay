@@ -1,0 +1,222 @@
+/* ═══════════════════════════════════════════════════════════════════
+   simulator.css — Interactive Payment Lifecycle & Replay Simulator
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Container Layout ────────────────────────────────────────────── */
+.simulator-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Playback Controls Bar ───────────────────────────────────────── */
+.simulator-control-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.simulator-btn-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.simulator-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.simulator-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+.simulator-btn-primary {
+  background: linear-gradient(135deg, #FF003C 0%, #FF1744 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(255, 0, 60, 0.35);
+}
+
+.simulator-btn-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(255, 0, 60, 0.45);
+}
+
+.simulator-btn-secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: inherit;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.simulator-btn-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+/* ── Animated Vertical Timeline ──────────────────────────────────── */
+.timeline-tree {
+  position: relative;
+  padding-left: 28px;
+  margin: 16px 0;
+}
+
+.timeline-tree::before {
+  content: '';
+  position: absolute;
+  left: 11px;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: linear-gradient(180deg, #FF003C 0%, rgba(255, 0, 60, 0.2) 100%);
+}
+
+.timeline-node-item {
+  position: relative;
+  margin-bottom: 24px;
+  animation: timelineNodeFade 0.4s ease-out forwards;
+}
+
+.timeline-node-item:last-child {
+  margin-bottom: 0;
+}
+
+@keyframes timelineNodeFade {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.timeline-dot {
+  position: absolute;
+  left: -28px;
+  top: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  z-index: 2;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.timeline-node-item.active .timeline-dot {
+  transform: scale(1.25);
+  box-shadow: 0 0 16px rgba(255, 0, 60, 0.6);
+  animation: pulseDot 1.8s infinite;
+}
+
+@keyframes pulseDot {
+  0% { box-shadow: 0 0 0 0 rgba(255, 0, 60, 0.5); }
+  70% { box-shadow: 0 0 0 10px rgba(255, 0, 60, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 0, 60, 0); }
+}
+
+.timeline-content-card {
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: all 0.25s ease;
+}
+
+.timeline-node-item.active .timeline-content-card {
+  border-color: rgba(255, 0, 60, 0.5);
+  background: rgba(255, 0, 60, 0.06);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+
+.timeline-duration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(6, 182, 212, 0.12);
+  color: #22D3EE;
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  margin-top: 6px;
+}
+
+/* ── Event Log Stream ────────────────────────────────────────────── */
+.simulator-log-container {
+  height: 280px;
+  overflow-y: auto;
+  border-radius: 12px;
+  background: #0D0D0D;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 12px;
+  font-family: 'Consolas', 'Courier New', monospace;
+  font-size: 0.8rem;
+}
+
+.simulator-log-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  margin-bottom: 4px;
+  animation: logRowSlide 0.25s ease-out forwards;
+}
+
+@keyframes logRowSlide {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.simulator-log-row:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.simulator-log-time {
+  color: #64748B;
+  font-size: 0.72rem;
+  flex-shrink: 0;
+}
+
+.simulator-log-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.simulator-log-badge.info { background: rgba(6, 182, 212, 0.2); color: #22D3EE; }
+.simulator-log-badge.success { background: rgba(16, 185, 129, 0.2); color: #34D399; }
+.simulator-log-badge.warn { background: rgba(245, 158, 11, 0.2); color: #FCD34D; }
+.simulator-log-badge.error { background: rgba(239, 68, 68, 0.2); color: #F87171; }
+.simulator-log-badge.retry { background: rgba(168, 85, 247, 0.2); color: #C084FC; }
+
+.simulator-log-msg {
+  flex: 1;
+  line-height: 1.4;
+  word-break: break-word;
+}
