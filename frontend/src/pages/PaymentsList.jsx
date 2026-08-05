@@ -7,23 +7,66 @@ import {
   TextField,
   Button,
   Typography,
-  Chip,
   CircularProgress,
-  Grid,
   MenuItem,
   InputAdornment,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
-import { Add, Search, FilterList } from '@mui/icons-material';
+import { Add, Search } from '@mui/icons-material';
 import { paymentAPI } from '../services/api';
 import { format } from 'date-fns';
+import StatusBadge from '../components/StatusBadge';
 
-const statusColors = {
-  CREATED: 'default',
-  VALIDATED: 'info',
-  SENT: 'warning',
-  COMPLETED: 'success',
-  FAILED: 'error',
+const GRID_SX = {
+  border: 'none',
+  background: 'transparent',
+  '& .MuiDataGrid-columnHeaders': {
+    background:    '#1E293B',
+    borderBottom:  '1px solid rgba(255,255,255,0.08)',
+    borderRadius:  0,
+    minHeight:     '48px !important',
+  },
+  '& .MuiDataGrid-columnHeaderTitle': {
+    color:         '#94A3B8',
+    fontWeight:    700,
+    fontSize:      '0.68rem',
+    letterSpacing: 0.9,
+    textTransform: 'uppercase',
+  },
+  '& .MuiDataGrid-columnSeparator': { color: 'rgba(255,255,255,0.08)' },
+  '& .MuiDataGrid-row': {
+    background:  '#0F172A',
+    transition:  'background 0.2s ease',
+    '&:hover':   { background: 'rgba(99,102,241,0.08)' },
+    '&.Mui-selected': {
+      background: 'rgba(99,102,241,0.12)',
+      '&:hover':  { background: 'rgba(99,102,241,0.16)' },
+    },
+  },
+  '& .MuiDataGrid-cell': {
+    color:        '#CBD5E1',
+    fontSize:     '0.875rem',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    display:      'flex',
+    alignItems:   'center',
+  },
+  '& .MuiDataGrid-footerContainer': {
+    background:  '#1E293B',
+    borderTop:   '1px solid rgba(255,255,255,0.08)',
+  },
+  '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+    color:    '#94A3B8',
+    fontSize: '0.8rem',
+  },
+  '& .MuiTablePagination-select': { color: '#CBD5E1' },
+  '& .MuiDataGrid-iconButtonContainer .MuiIconButton-root, & .MuiTablePagination-actions .MuiIconButton-root': {
+    color:     '#64748B',
+    '&:hover': { background: 'rgba(99,102,241,0.1)', color: '#818CF8' },
+    '&.Mui-disabled': { color: '#1E293B' },
+  },
+  '& .MuiDataGrid-overlay': { background: 'rgba(11,17,32,0.85)', color: '#94A3B8' },
+  '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
+  '& .MuiDataGrid-withBorderColor': { borderColor: 'rgba(255,255,255,0.05)' },
 };
 
 function PaymentsList() {
@@ -82,15 +125,8 @@ function PaymentsList() {
     {
       field: 'status',
       headerName: 'Status',
-      width: 120,
-      renderCell: (params) => (
-        <Chip
-          label={params.value}
-          size="small"
-          color={statusColors[params.value] || 'default'}
-          variant="outlined"
-        />
-      ),
+      width: 140,
+      renderCell: (params) => <StatusBadge status={params.value} />,
     },
     {
       field: 'createdAt',
@@ -227,7 +263,7 @@ function PaymentsList() {
       </Card>
 
       {/* Data Table */}
-      <Card>
+      <Card sx={{ overflow: 'hidden', p: 0 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
             <CircularProgress />
@@ -239,7 +275,7 @@ function PaymentsList() {
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
             pageSizeOptions={[10, 25, 50]}
-            sx={{ height: 600, border: 'none' }}
+            sx={{ height: 600, ...GRID_SX }}
           />
         )}
       </Card>

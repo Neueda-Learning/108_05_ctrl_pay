@@ -32,6 +32,7 @@ import {
 } from '@mui/icons-material';
 import { rulesAPI } from '../services/api';
 import { toast } from 'react-toastify';
+import StatusBadge from '../components/StatusBadge';
 
 const RULE_TYPES = [
   { id: 'CURRENCY_WHITELIST', name: 'Currency Whitelist', icon: '💱' },
@@ -191,7 +192,7 @@ function RulesManagement() {
       <Card>
         <TableContainer>
           <Table>
-            <TableHead sx={{ backgroundColor: 'grey.100' }}>
+            <TableHead>
               <TableRow>
                 <TableCell sx={{ fontWeight: 700 }}>Rule Name</TableCell>
                 <TableCell sx={{ fontWeight: 700 }}>Type</TableCell>
@@ -208,11 +209,7 @@ function RulesManagement() {
                      <TableCell>{getRuleTypeLabel(rule.ruleType)}</TableCell>
                      <TableCell>{rule.description || '-'}</TableCell>
                      <TableCell align="center">
-                       <Chip
-                         label={rule.isActive ? 'Active' : 'Inactive'}
-                         color={rule.isActive ? 'success' : 'default'}
-                         size="small"
-                       />
+                       <StatusBadge status={rule.isActive ? 'ACTIVE' : 'INACTIVE'} label={rule.isActive ? 'Active' : 'Inactive'} />
                      </TableCell>
                     <TableCell align="center">
                       <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

@@ -226,13 +226,19 @@ function CreatePayment() {
       try {
         setLoading(true);
 
-        // Create payment with existing API
+        // Create payment with exchange rate information
         const response = await paymentAPI.createPayment({
           sourceAccount: data.sourceAccount,
           destinationAccount: data.destinationAccount,
           amount: parseFloat(data.amount),
           currency: sourceCurrency,
+          sourceCurrency: sourceCurrency,
+          destinationCurrency: destinationCurrency,
+          sourceAmount: convertedAmount ? convertedAmount : parseFloat(data.amount),
+          destinationAmount: convertedAmount,
+          exchangeRate: exchangeRate,
           idempotencyKey: `payment-${Date.now()}`,
+          pin: data.pin,
         });
 
         setPaymentId(response.data.id);
@@ -246,9 +252,16 @@ function CreatePayment() {
         }, 1500);
       } catch (error) {
         console.error('Error creating payment:', error);
-        toast.error(
-          error.response?.data?.message || 'Error creating payment'
-        );
+
+        // Show specific error messages
+        if (error.response?.status === 401) {
+          toast.error('PIN verification failed. Please check your PIN and try again.');
+        } else {
+          toast.error(
+            error.response?.data?.message || 'Error creating payment'
+          );
+        }
+
         setActiveStep(0);
       } finally {
         setLoading(false);

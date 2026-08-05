@@ -14,7 +14,7 @@ import {
 } from '@mui/material';
 import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
-import { accountAPI } from '../services/api';
+import { accountAPI, currencyAPI } from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
@@ -23,10 +23,31 @@ function CustomerProfile() {
   const { customerId, customer, accounts, loadCustomer, loadingCustomer, clearCustomer } = useCustomer();
   const [customerIdInput, setCustomerIdInput] = useState(customerId || '');
   const [submitting, setSubmitting] = useState(false);
+  const [currencies, setCurrencies] = useState([]);
+  const [loadingCurrencies, setLoadingCurrencies] = useState(true);
 
   useEffect(() => {
     setCustomerIdInput(customerId || '');
   }, [customerId]);
+
+  // Load currencies on component mount
+  useEffect(() => {
+    const loadCurrencies = async () => {
+      try {
+        setLoadingCurrencies(true);
+        const response = await currencyAPI.getCurrencies();
+        setCurrencies(response.data || []);
+      } catch (error) {
+        console.error('Error loading currencies:', error);
+        toast.error('Failed to load available currencies');
+        setCurrencies([]);
+      } finally {
+        setLoadingCurrencies(false);
+      }
+    };
+
+    loadCurrencies();
+  }, []);
 
   const accountForm = useForm({
     defaultValues: {
@@ -141,23 +162,23 @@ function CustomerProfile() {
                 <Typography variant="body2" color="text.secondary">
                   No accounts loaded for the selected customer.
                 </Typography>
-               ) : (
-                 <Stack spacing={1.5}>
-                   {accounts.map((account) => (
-                     <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                         {account.accountNumber} - {account.accountName}
-                       </Typography>
-                       <Typography variant="body2" color="text.secondary">
-                         {account.bankName} | {account.ifscCode}
-                       </Typography>
-                       <Typography variant="body2">
-                         {account.currency} {account.accountBalance}
-                       </Typography>
-                     </Box>
-                   ))}
-                 </Stack>
-               )}
+              ) : (
+                <Stack spacing={1.5}>
+                  {accounts.map((account) => (
+                    <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                        {account.accountName}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {account.bankName} | {account.ifscCode}
+                      </Typography>
+                      <Typography variant="body2">
+                        {account.currency} {account.accountBalance}
+                      </Typography>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -262,12 +283,18 @@ function CustomerProfile() {
                       name="currency"
                       control={accountForm.control}
                       render={({ field }) => (
-                        <TextField {...field} label="Currency" select fullWidth>
-                          {['INR', 'USD', 'EUR', 'GBP'].map((currency) => (
-                            <MenuItem key={currency} value={currency}>
-                              {currency}
-                            </MenuItem>
-                          ))}
+                        <TextField {...field} label="Currency" select fullWidth disabled={loadingCurrencies}>
+                          {loadingCurrencies ? (
+                            <MenuItem disabled>Loading currencies...</MenuItem>
+                          ) : currencies.length > 0 ? (
+                            currencies.map((currency) => (
+                              <MenuItem key={currency.code} value={currency.code}>
+                                {currency.name} ({currency.code})
+                              </MenuItem>
+                            ))
+                          ) : (
+                            <MenuItem disabled>No currencies available</MenuItem>
+                          )}
                         </TextField>
                       )}
                     />
