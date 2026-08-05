@@ -28,9 +28,15 @@ pipeline {
         stage('Frontend Build and Test') {
             steps {
                 dir('frontend') {
-                    sh 'npm install --no-audit --no-fund'
-                    sh 'CI=true npm test -- --watch=false --passWithNoTests'
-                    sh 'npm run build'
+                    sh '''#!/bin/sh
+if command -v npm >/dev/null 2>&1; then
+  npm install --no-audit --no-fund
+  CI=true npm test -- --watch=false --passWithNoTests
+  npm run build
+else
+  docker run --rm -v "$PWD":/app -w /app node:20-alpine sh -lc "npm install --no-audit --no-fund && CI=true npm test -- --watch=false --passWithNoTests && npm run build"
+fi
+'''
                 }
             }
         }
@@ -38,9 +44,15 @@ pipeline {
         stage('ML Build and Validation') {
             steps {
                 dir('ml_fraud-detection/payment-fraud-detection-main') {
-                    sh 'python3 -m pip install -r requirements.txt'
-                    sh 'python3 -u -c "import pickle, xgboost, sklearn, numpy, pandas"'
-                    sh 'python3 -u -c "from pathlib import Path; p=Path(\"XGBoostModel.pkl\"); assert p.exists(), \"XGBoostModel.pkl not found\"; pickle.load(p.open(\"rb\")); print(\"Model loaded\")"'
+                    sh '''#!/bin/sh
+if command -v python3 >/dev/null 2>&1; then
+  python3 -m pip install -r requirements.txt
+  python3 -u -c "import pickle, xgboost, sklearn, numpy, pandas"
+  python3 -u -c "from pathlib import Path; p=Path(\"XGBoostModel.pkl\"); assert p.exists(), \"XGBoostModel.pkl not found\"; pickle.load(p.open(\"rb\")); print(\"Model loaded\")"
+else
+  docker run --rm -v "$PWD":/app -w /app python:3.11-slim sh -lc "pip install -r requirements.txt && python -u -c 'import pickle, xgboost, sklearn, numpy, pandas' && python -u -c 'from pathlib import Path; p=Path(\"XGBoostModel.pkl\"); assert p.exists(), \"XGBoostModel.pkl not found\"; pickle.load(p.open(\"rb\")); print(\"Model loaded\")'"
+fi
+'''
                 }
             }
         }
