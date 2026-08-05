@@ -191,7 +191,7 @@ function Analytics() {
     },
     {
       label:          'Successful',
-      value:          successful,
+      value:          summary.successful,
       icon:           '✓',
       gradient:       'linear-gradient(135deg, #10B981 0%, #34D399 100%)',
       borderGradient: 'rgba(16,185,129,0.55) 0%, rgba(52,211,153,0.30) 100%',
@@ -200,7 +200,7 @@ function Analytics() {
     },
     {
       label:          'Failed / Fraud',
-      value:          failed,
+      value:          summary.failed,
       icon:           '⚠',
       gradient:       'linear-gradient(135deg, #EF4444 0%, #F97316 100%)',
       borderGradient: 'rgba(239,68,68,0.55) 0%, rgba(249,115,22,0.30) 100%',
@@ -209,7 +209,7 @@ function Analytics() {
     },
     {
       label:          'Pending / Other',
-      value:          pending,
+      value:          summary.pending,
       icon:           '◷',
       gradient:       'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
       borderGradient: 'rgba(245,158,11,0.55) 0%, rgba(251,191,36,0.30) 100%',
