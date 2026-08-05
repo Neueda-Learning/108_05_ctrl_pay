@@ -15,6 +15,7 @@ import {
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { format } from 'date-fns';
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 import { customerAPI } from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
 import StatusBadge from '../components/StatusBadge';
@@ -190,6 +191,29 @@ function Analytics() {
     return { total, successful, failed, pending };
   }, [payments]);
 
+  const pieData = useMemo(() => ([
+    {
+      name: 'Successful',
+      value: summary.successful,
+      color: '#10B981',
+      glow: alpha('#10B981', 0.45),
+    },
+    {
+      name: 'Failed',
+      value: summary.failed,
+      color: '#EF4444',
+      glow: alpha('#EF4444', 0.45),
+    },
+    {
+      name: 'Pending / Other',
+      value: summary.pending,
+      color: '#F59E0B',
+      glow: alpha('#F59E0B', 0.4),
+    },
+  ]), [summary.successful, summary.failed, summary.pending]);
+
+  const chartHasData = pieData.some((slice) => slice.value > 0);
+
   const metricCards = [
     {
       label:          'Total Payments',
@@ -359,6 +383,115 @@ function Analytics() {
           </Grid>
         ))}
       </Grid>
+
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+            Payment Distribution
+          </Typography>
+          <Grid container spacing={2} alignItems="center">
+            <Grid item xs={12} md={7}>
+              <Box
+                sx={{
+                  height: 320,
+                  borderRadius: 3,
+                  border: `1px solid ${alpha(custom.border, 0.7)}`,
+                  background:
+                    `radial-gradient(circle at 15% 20%, ${alpha(custom.brand.main, 0.12)} 0%, transparent 55%),` +
+                    `radial-gradient(circle at 85% 80%, ${alpha(custom.brand.accent, 0.12)} 0%, transparent 50%)`,
+                  p: 1,
+                }}
+              >
+                {chartHasData ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={76}
+                        outerRadius={118}
+                        paddingAngle={4}
+                        cornerRadius={10}
+                        isAnimationActive
+                        animationDuration={850}
+                        animationEasing="ease-out"
+                        labelLine={false}
+                        label={({ percent }) => `${Math.round(percent * 100)}%`}
+                      >
+                        {pieData.map((entry) => (
+                          <Cell key={entry.name} fill={entry.color} stroke={alpha(entry.color, 0.95)} />
+                        ))}
+                      </Pie>
+                      <RechartsTooltip
+                        formatter={(value, name) => [value, name]}
+                        contentStyle={{
+                          borderRadius: 12,
+                          border: `1px solid ${alpha(custom.border, 0.9)}`,
+                          background: alpha(custom.background.card, 0.96),
+                          color: custom.text.primary,
+                        }}
+                        itemStyle={{ color: custom.text.primary }}
+                        labelStyle={{ color: custom.text.secondary }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <Box sx={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Typography variant="body2" color="text.secondary">
+                      No payment data available yet.
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Grid>
+
+            <Grid item xs={12} md={5}>
+              <Box sx={{ display: 'grid', gap: 1.25 }}>
+                {pieData.map((slice) => (
+                  <Box
+                    key={slice.name}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      px: 1.5,
+                      py: 1.25,
+                      borderRadius: 2,
+                      border: `1px solid ${alpha(slice.color, 0.45)}`,
+                      backgroundColor: alpha(slice.color, 0.12),
+                      boxShadow: `0 0 18px ${slice.glow}`,
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box
+                        sx={{
+                          width: 10,
+                          height: 10,
+                          borderRadius: '50%',
+                          bgcolor: slice.color,
+                          boxShadow: `0 0 10px ${slice.glow}`,
+                        }}
+                      />
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                        {slice.name}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                      {slice.value}
+                    </Typography>
+                  </Box>
+                ))}
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5 }}>
+                  Total payments: {summary.total}
+                </Typography>
+              </Box>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       <Card sx={{ mb: 3 }}>
         <CardContent>
