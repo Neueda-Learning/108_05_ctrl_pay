@@ -1,118 +1,333 @@
-# Ctrl-Pay DevOps Setup
+# Ctrl-Pay Payment Processing System
 
-This repository now includes a production-ready container setup for the existing Ctrl-Pay stack without changing application logic, APIs, schemas, or package names.
+A full-stack payment processing platform with fraud detection, built with React, Spring Boot, MySQL, a Flask ML service, Docker Compose, Nginx, and Jenkins.
 
-## Architecture Overview
+- **Backend:** Spring Boot 4.0.7 (Java 17), Spring Web, Spring JDBC, MySQL
+- **Frontend:** React 18 + CRA
+- **API Docs:** springdoc OpenAPI / Swagger UI
+- **Fraud Detection:** Flask + XGBoost model inference service
+- **Containerization:** Docker + Docker Compose
 
-Runtime services are split by responsibility:
+## Table of Contents
 
-- `frontend`: Nginx container that serves the React production build and reverse proxies internal APIs
-- `backend`: Spring Boot REST API (`/api`, `/actuator`)
-- `ml`: Flask inference service (`/predict-json`)
-- `mysql`: persistent MySQL database
+- [Overview](#overview)
+- [Architecture](#architecture)
+- [Tech Stack](#tech-stack)
+- [Prerequisites](#prerequisites)
+- [Quick Start (Docker Compose)](#quick-start-docker-compose)
+- [Deployment Access (Linux VM)](#deployment-access-linux-vm)
+- [Local Development (Without Docker)](#local-development-without-docker)
+- [Configuration](#configuration)
+- [Database Schema and Seed Data](#database-schema-and-seed-data)
+- [API Reference](#api-reference)
+- [Frontend Notes](#frontend-notes)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Project Structure](#project-structure)
 
-Traffic flow:
+## Overview
 
-1. Browser calls `http://<host>:<NGINX_PORT>`
-2. `frontend` serves static frontend files
-3. `frontend` proxies:
-   - `/api/*` and `/actuator/*` -> `backend:8082`
-   - `/ml/*` -> `ml:8083`
-4. `backend` talks to `mysql:3306`
-5. `backend` calls ML service via `FRAUD_API_BASE_URL` (default `http://ml:8083`)
+Ctrl-Pay manages the lifecycle of payment transactions:
 
-## Service List
+1. Create a payment
+2. Validate it against business rules
+3. Process it through the settlement flow
+4. Complete or fail the payment
+5. Record an audit trail for compliance and traceability
 
-- `frontend` (public): host port `8081` -> container `80`
-- `backend` (internal): `8082`
-- `ml` (internal): `8083`
-- `mysql` (internal): `3306`
+The frontend provides the user interface for payment operations, the backend exposes REST APIs, the MySQL database stores transactional state, and the ML service provides fraud probability scoring that the backend can consult during processing.
 
-Only `frontend` is exposed publicly by default.
+## Architecture
 
-## Runtime Configuration
+```text
++--------------+--------------------------+------+----------------------------------------------+
+| Layer        | Component                | Port | Responsibility                               |
++--------------+--------------------------+------+----------------------------------------------+
+| Frontend     | ctrl-pay-frontend        | 8081 | Serves React UI through Nginx                |
+| Proxy        | Nginx (frontend)         | 80   | Proxies /api, /ml, /actuator, Swagger paths  |
+| Backend API  | ctrl-pay-backend         | 8082 | Exposes payment REST endpoints               |
+| ML Service   | ctrl-pay-ml              | 8083 | Fraud prediction inference                   |
+| Database     | ctrl-pay-mysql (MySQL 8) | 3306 | Persists payments, history, rules, audits    |
+| Jenkins      | Jenkins                   | 8080 | CI/CD pipeline execution                     |
++--------------+--------------------------+------+----------------------------------------------+
+```
 
-Runtime values are defined directly in `docker-compose.yml` (no `.env` file required).
+Request flow:
 
-## Docker Usage
+```text
+[ Browser :8081 ]
+        |
+        | GET /api/payments
+        v
+[ Nginx (ctrl-pay-frontend) ]
+        |
+        | proxy_pass /api/*
+        v
+[ Spring Boot API :8082 ] -----> [ MySQL :3306 ]
+        |
+        | fraud scoring request
+        v
+[ Flask ML Service :8083 ]
+```
 
-### Build and run all services
+## Tech Stack
+
+```text
++-----------+--------------------------------------+---------+--------------------------------------+
+| Layer     | Technology                           | Version | Notes                                |
++-----------+--------------------------------------+---------+--------------------------------------+
+| Backend   | Java                                 | 17      | Runtime language                     |
+| Backend   | Spring Boot                          | 4.0.7   | Application framework                |
+| Backend   | Spring Web                           | Managed | REST controllers                     |
+| Backend   | Spring JDBC                          | Managed | Data access layer                    |
+| Backend   | MySQL Connector/J                    | Managed | MySQL JDBC driver                    |
+| Backend   | springdoc-openapi-starter-webmvc-ui  | 2.8.14  | OpenAPI + Swagger UI                 |
+| Frontend  | React                                | 18      | UI framework                         |
+| Frontend  | CRA / react-scripts                  | 5.x     | Build tooling                        |
+| ML        | Flask                                | 3.x     | Inference API                        |
+| ML        | XGBoost / scikit-learn / pandas      | 2.x/1.x | Fraud model runtime dependencies     |
+| Container | Docker / Docker Compose              | N/A     | Multi-service local environment      |
++-----------+--------------------------------------+---------+--------------------------------------+
+```
+
+## Prerequisites
+
+Install these tools:
+
+- Java 17+
+- Maven 3.9+
+- Node.js 20+
+- Python 3.11+
+- Docker Desktop or Docker Engine
+- Docker Compose
+
+## Quick Start (Docker Compose)
+
+This is the easiest way to run the entire platform.
 
 ```bash
 docker compose up --build
 ```
 
-### Run in detached mode
+Services started:
 
-```bash
-docker compose up -d --build
-```
+- `ctrl-pay-mysql` (MySQL): `3306` internal
+- `ctrl-pay-backend` (API): `8082` internal
+- `ctrl-pay-ml` (fraud scoring): `8083` internal
+- `ctrl-pay-frontend` (UI via Nginx): `8081` public
+- Jenkins (separate VM service): `8080`
 
-### Check status and logs
+Open:
 
-```bash
-docker compose ps
-docker compose logs -f frontend
-docker compose logs -f backend
-docker compose logs -f ml
-docker compose logs -f mysql
-```
+- Frontend: `http://localhost:8081`
+- API base: `http://localhost:8081/api/payments`
+- Swagger UI: `http://localhost:8081/swagger-ui/index.html`
+- OpenAPI JSON: `http://localhost:8081/v3/api-docs`
 
-### Stop services
+Stop services:
 
 ```bash
 docker compose down
 ```
 
-### Stop and remove DB volume
+Stop and remove volumes (fresh DB):
 
 ```bash
 docker compose down -v
 ```
 
-## VM Access (Linux Host)
+## Deployment Access (Linux VM)
 
-After deployment, access services through the VM IP. Example:
+After deployment, access services through the VM IP:
 
 ```powershell
 $env:VM_IP="10.9.72.215"
 ```
 
-Access via VM IP:
+Access URLs:
 
-- Frontend: `http://${VM_IP}:8081`
-- Swagger UI: `http://${VM_IP}:8081/swagger-ui/index.html`
-- OpenAPI JSON: `http://${VM_IP}:8081/v3/api-docs`
-- Jenkins: `http://${VM_IP}:8080`
+- Frontend: `http://10.9.72.215:8081`
+- Swagger UI: `http://10.9.72.215:8081/swagger-ui/index.html`
+- OpenAPI JSON: `http://10.9.72.215:8081/v3/api-docs`
+- Jenkins: `http://10.9.72.215:8080`
 
-Note: Jenkins uses `8080`. The app frontend is exposed on `8081`.
+## Local Development (Without Docker)
 
-## Development Workflow
+### 1) Start MySQL and create database
 
-### Backend (without Docker)
+Create the `ctrl_pay` database locally if you are not using Docker.
+
+### 2) Run backend
+
+From `backend`:
 
 ```bash
-cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=dev"
 ```
 
-### Frontend (without Docker)
+### 3) Run frontend
+
+From `frontend`:
 
 ```bash
-cd frontend
 npm install
 npm start
 ```
 
-### ML service (without Docker)
+### 4) Run ML service
+
+From `ml_fraud-detection/payment-fraud-detection-main`:
 
 ```bash
-cd ml_fraud-detection/payment-fraud-detection-main
 pip install -r requirements.txt
 flask --app app run --host=0.0.0.0 --port=8083
 ```
 
-## CI Pipeline (GitHub Actions)
+## Configuration
+
+Main config files:
+
+- `backend/src/main/resources/application.properties`
+- `backend/src/main/resources/application-dev.properties`
+- `backend/src/main/resources/application-docker.properties`
+- `backend/src/main/resources/application-prod.properties`
+- `frontend/src/services/api.js`
+- `frontend/nginx.conf`
+- `docker-compose.yml`
+
+Important settings:
+
+- `spring.sql.init.mode=always` loads `schema.sql` at startup.
+- Docker backend port is `8082`.
+- Docker ML service port is `8083`.
+- Nginx serves the UI on `8081` and proxies `/api`, `/ml`, `/actuator`, and Swagger routes.
+
+## Database Schema and Seed Data
+
+Schema file:
+
+- `backend/src/main/resources/schema.sql`
+
+Core tables:
+
+- `customers`
+- `accounts`
+- `payments`
+- `payment_status_history`
+- `validation_rules`
+- `validation_results`
+- `payment_retry_attempts`
+
+Additional Phase 1 tables:
+
+- `ml_models`
+- `ml_model_predictions`
+- `fraud_audit_events`
+
+The backend seeds validation rules and other bootstrap data during startup when required.
+
+## API Reference
+
+Base URL: `/api`
+
+Common endpoints:
+
+```text
+POST   /api/payments                    Create new payment
+GET    /api/payments/{id}               Get payment details
+GET    /api/payments                    List payments with filtering/pagination
+POST   /api/payments/{id}/validate      Validate payment
+POST   /api/payments/{id}/send          Send payment
+POST   /api/payments/{id}/complete      Mark payment complete
+POST   /api/payments/{id}/fail          Mark payment failed
+GET    /api/payments/{id}/audit         Get audit trail
+GET    /api/payments/{id}/history       Get status history
+GET    /api/payments/{id}/validations   Get validation results
+```
+
+Admin and analytics endpoints:
+
+```text
+GET    /api/admin/validation-rules
+POST   /api/admin/validation-rules
+PUT    /api/admin/validation-rules/{id}
+PATCH  /api/admin/validation-rules/{id}/toggle
+POST   /api/admin/validation-rules/{id}/test-dry-run
+GET    /api/analytics/success-rate
+GET    /api/analytics/status-distribution
+GET    /api/analytics/volume
+GET    /api/analytics/trends
+```
+
+ML inference endpoint:
+
+```text
+POST   /predict-json
+```
+
+Swagger UI is available through the frontend Nginx route:
+
+```text
+/swagger-ui/index.html
+```
+
+## Frontend Notes
+
+- API helper is in `frontend/src/services/api.js`.
+- The app uses Nginx to proxy API requests to the backend.
+- The frontend routes include dashboard, payments, payment details, create payment, rules management, analytics, customer profile, and fraud dashboard pages.
+- For containerized runs, the frontend should call relative paths like `/api` and `/ml`.
+
+## Testing
+
+Run backend tests:
+
+```bash
+cd backend
+./mvnw test
+```
+
+Build backend artifact:
+
+```bash
+cd backend
+./mvnw clean package -DskipTests
+```
+
+Run frontend tests/build:
+
+```bash
+cd frontend
+npm test
+npm run build
+```
+
+Validate ML service imports/model loading:
+
+```bash
+cd ml_fraud-detection/payment-fraud-detection-main
+pip install -r requirements.txt
+python -u -c "import pickle, xgboost, sklearn, numpy, pandas"
+```
+
+Docker Compose validation:
+
+```bash
+docker compose config -q
+```
+
+## Troubleshooting
+
+- **Frontend cannot reach backend:** confirm nginx is proxying `/api` to `backend:8082` and the frontend bundle uses `/api` as the base URL.
+- **CORS errors:** nginx handles preflight and strips the `Origin` header before forwarding to the backend.
+- **Backend connection failed:** ensure the backend is running on `8082` and MySQL is healthy.
+- **ML service errors:** ensure `XGBoostModel.pkl` exists and the ML service is running on `8083`.
+- **Port conflict:** frontend uses `8081`, Jenkins uses `8080`, backend/ML stay internal.
+- **Database schema issues:** confirm `schema.sql` is mounted and MySQL volume is clean if you need a fresh start.
+
+## CI/CD
+
+### GitHub Actions
 
 Workflow: `.github/workflows/ci.yml`
 
@@ -121,36 +336,41 @@ Pipeline stages:
 1. Backend: install dependencies, run tests, build artifact
 2. Frontend: install dependencies, run tests, build production bundle
 3. ML: install dependencies, verify imports, validate model loading
-4. Docker: build all images and validate compose configuration
+4. Docker: build images and validate compose configuration
 
-No cloud deployment step is included.
+### Jenkins (Linux Server)
 
-## Jenkins Pipeline (Linux Server)
-
-A Jenkins pipeline is included at `Jenkinsfile` for Linux-host deployment using Docker Compose.
-
-It follows the same method pattern as the kk-04 reference pipeline:
+`Jenkinsfile` runs the Linux deployment pipeline:
 
 1. Checkout source
 2. Build and test backend/frontend/ML components
-3. Stop existing containers (`docker-compose down || true`)
-4. Build Docker images (`docker-compose build --no-cache`)
-5. Deploy (`docker-compose up -d`)
-6. Verify (`docker ps`, `docker-compose ps`)
+3. Stop existing containers
+4. Build Docker images
+5. Deploy with Docker Compose
+6. Verify running containers
 
-Deployment setup details are in `docs/LINUX_JENKINS_DEPLOYMENT.md`.
+Deployment notes are in `docs/LINUX_JENKINS_DEPLOYMENT.md`.
 
-## Infra File Map
+## Project Structure
 
-- `docker-compose.yml` - orchestration for `mysql`, `backend`, `ml`, and `frontend`
-- `backend/Dockerfile` - backend build/runtime image
-- `frontend/Dockerfile` - frontend build + Nginx runtime image
-- `frontend/nginx.conf` - SPA fallback and reverse proxy rules
-- `ml_fraud-detection/payment-fraud-detection-main/Dockerfile` - ML service image
-- `.github/workflows/ci.yml` - CI checks for backend/frontend/ML and Docker validation
-- `Jenkinsfile` - Linux Jenkins CI/CD and deployment pipeline
-- `docs/LINUX_JENKINS_DEPLOYMENT.md` - Linux server deployment instructions
-
-
-
-
+```text
++--------------------------------------------------+------------------------------------------+
+| Path                                             | Purpose                                  |
++--------------------------------------------------+------------------------------------------+
+| backend/src/main/java/com/neueda/controller/     | REST endpoints                           |
+| backend/src/main/java/com/neueda/service/        | Business logic                           |
+| backend/src/main/java/com/neueda/repository/     | JDBC repositories                        |
+| backend/src/main/java/com/neueda/domain/         | Domain models                            |
+| backend/src/main/java/com/neueda/fraud/          | ML model registry / fraud logic          |
+| backend/src/main/resources/schema.sql             | DB schema init                           |
+| frontend/src/                                     | React application source                 |
+| frontend/src/services/api.js                      | API client                               |
+| frontend/nginx.conf                               | Nginx reverse proxy                      |
+| ml_fraud-detection/payment-fraud-detection-main/  | Flask ML inference service               |
+| docker-compose.yml                                | Multi-service container orchestration     |
+| backend/Dockerfile                                | Backend container image                  |
+| frontend/Dockerfile                               | Frontend container image                 |
+| Jenkinsfile                                       | Jenkins CI/CD pipeline                   |
+| docs/LINUX_JENKINS_DEPLOYMENT.md                  | Linux VM deployment guide                |
++--------------------------------------------------+------------------------------------------+
+```
