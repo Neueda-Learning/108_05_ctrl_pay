@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -9,9 +9,11 @@ import {
   Alert,
   TextField,
   Typography,
+  Chip,
 } from '@mui/material';
-import { AccountCircle, AddCard, Analytics, ArrowForward, PersonAdd } from '@mui/icons-material';
+import { AccountCircle, AddCard, Analytics, ArrowForward, PersonAdd, Security } from '@mui/icons-material';
 import { useCustomer } from '../context/CustomerContext';
+import { adminFraudAPI } from '../services/api';
 
 const actionCards = [
   {
@@ -49,6 +51,7 @@ function Dashboard() {
   const { customer, accounts, loadCustomer, loadingCustomer, clearCustomer } = useCustomer();
   const [customerIdInput, setCustomerIdInput] = useState('');
   const [error, setError] = useState('');
+  const [fraudStats, setFraudStats] = useState(null);
 
   const handleLoadCustomer = async () => {
     try {
@@ -58,6 +61,13 @@ function Dashboard() {
       setError(loadError.response?.data?.message || loadError.message || 'Unable to load customer');
     }
   };
+
+  // Load fraud stats on mount
+  useEffect(() => {
+    adminFraudAPI.getStats()
+      .then(r => setFraudStats(r.data))
+      .catch(() => {}); // graceful — fraud service may not be ready
+  }, []);
 
   const handleClear = () => {
     setCustomerIdInput('');
@@ -157,6 +167,45 @@ function Dashboard() {
           </Grid>
         ))}
       </Grid>
+
+      {/* Fraud Monitoring Widget */}
+      {fraudStats && (
+        <Card sx={{ mb: 3, border: fraudStats.pendingReview > 0 ? '1px solid rgba(245,158,11,0.35)' : undefined }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Security sx={{ color: fraudStats.pendingReview > 0 ? '#F59E0B' : '#10B981' }} />
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>Fraud Monitoring</Typography>
+                {fraudStats.pendingReview > 0 && (
+                  <Chip
+                    label={`${fraudStats.pendingReview} pending`}
+                    size="small"
+                    sx={{ background: 'rgba(245,158,11,0.15)', color: '#F59E0B', fontWeight: 700 }}
+                  />
+                )}
+              </Box>
+              <Button size="small" variant="outlined" onClick={() => navigate('/fraud')}>
+                Open Fraud Dashboard →
+              </Button>
+            </Box>
+            <Grid container spacing={2}>
+              {[
+                { label: 'Pending Review', value: fraudStats.pendingReview ?? 0, color: '#F59E0B' },
+                { label: 'Approved Today', value: fraudStats.totalApproved ?? 0, color: '#10B981' },
+                { label: 'Rejected', value: fraudStats.totalRejected ?? 0, color: '#EF4444' },
+                { label: 'Fraud Rate', value: fraudStats.fraudRate ?? '0%', color: '#6366F1' },
+              ].map(({ label, value, color }) => (
+                <Grid item xs={6} sm={3} key={label}>
+                  <Box sx={{ textAlign: 'center', p: 1, background: 'rgba(255,255,255,0.03)', borderRadius: 2 }}>
+                    <Typography variant="h5" sx={{ fontWeight: 700, color }}>{value}</Typography>
+                    <Typography variant="caption" sx={{ color: '#64748B' }}>{label}</Typography>
+                  </Box>
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent>

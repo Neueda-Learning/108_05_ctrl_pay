@@ -12,9 +12,10 @@ import {
   Chip,
   Divider,
   Stack,
+  LinearProgress,
 } from '@mui/material';
-import { CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
-import { paymentAPI } from '../services/api';
+import { CheckCircle, Error as ErrorIcon, Security as SecurityIcon } from '@mui/icons-material';
+import { paymentAPI, adminFraudAPI } from '../services/api';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
 import { useCustomer } from '../context/CustomerContext';
@@ -27,6 +28,7 @@ import {
 const statusColors = {
   CREATED: 'default',
   VALIDATED: 'info',
+  SUSPICIOUS: 'warning',
   SENT: 'warning',
   COMPLETED: 'success',
   FAILED: 'error',
@@ -38,9 +40,11 @@ function PaymentDetail() {
   const { customerId } = useCustomer();
   const [payment, setPayment] = useState(null);
   const [history, setHistory] = useState([]);
+  const [fraudDetail, setFraudDetail] = useState(null);
   const [loading, setLoading] = useState(true);
   const [downloadingReceipt, setDownloadingReceipt] = useState(false);
   const [receiptError, setReceiptError] = useState('');
+  const [fraudAction, setFraudAction] = useState('');
 
   useEffect(() => {
     fetchPaymentDetails();
@@ -53,10 +57,16 @@ function PaymentDetail() {
         paymentAPI.getPayment(id),
         paymentAPI.getPaymentHistory(id),
       ]);
-
       setPayment(paymentRes.data);
       setHistory(Array.isArray(historyRes.data) ? historyRes.data : []);
 
+      // Load fraud details if available
+      try {
+        const fraudRes = await adminFraudAPI.getPaymentFraudDetail(id);
+        setFraudDetail(fraudRes.data);
+      } catch {
+        // No fraud assessment — normal for valid payments
+      }
     } catch (error) {
       console.error('Error fetching payment details:', error);
     } finally {
@@ -68,6 +78,30 @@ function PaymentDetail() {
     ? Number(payment.fraudProbability).toFixed(2)
     : null;
   const isHighRisk = fraudProbability !== null && Number(fraudProbability) >= 80;
+  const isSuspicious = payment?.status === 'SUSPICIOUS';
+
+  const handleFraudApprove = async () => {
+    try {
+      setFraudAction('approving');
+      await adminFraudAPI.approvePayment(id, { reviewedBy: 'admin', notes: 'Approved via payment detail view' });
+      toast.success('Payment approved — transitioning to VALIDATED');
+      fetchPaymentDetails();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Approval failed');
+    } finally { setFraudAction(''); }
+  };
+
+  const handleFraudReject = async () => {
+    try {
+      setFraudAction('rejecting');
+      await adminFraudAPI.rejectPayment(id, { reviewedBy: 'admin', notes: 'Rejected via payment detail view — fraud confirmed' });
+      toast.success('Payment rejected — moved to FAILED');
+      fetchPaymentDetails();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Rejection failed');
+    } finally { setFraudAction(''); }
+  };
+
   const handleDownloadReceipt = async () => {
     if (!customerId) {
       setReceiptError('Load a customer profile before downloading a receipt.');
@@ -181,6 +215,95 @@ function PaymentDetail() {
             </CardContent>
           </Card>
 
+          {/* Fraud Assessment Card — shown if assessment exists */}
+          {fraudDetail?.fraudAssessment && (
+            <Card sx={{ mb: 3, border: isSuspicious ? '1px solid rgba(245,158,11,0.4)' : undefined }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <SecurityIcon sx={{ color: '#F59E0B' }} />
+                  <Typography variant="h6" sx={{ fontWeight: 700 }}>Fraud Assessment</Typography>
+                  <Chip
+                    label={fraudDetail.fraudAssessment.decision}
+                    size="small"
+                    sx={{
+                      ml: 'auto',
+                      background: fraudDetail.fraudAssessment.decision === 'APPROVED'
+                        ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                      color: fraudDetail.fraudAssessment.decision === 'APPROVED' ? '#10B981' : '#F59E0B',
+                      fontWeight: 700,
+                    }}
+                  />
+                </Box>
+                <Grid container spacing={2}>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="textSecondary">Hybrid Score</Typography>
+                    <Typography variant="h6" sx={{ fontWeight: 700, color: '#F59E0B' }}>
+                      {Number(fraudDetail.fraudAssessment.hybridFraudScore).toFixed(1)}%
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="textSecondary">Rule Score</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                      {Number(fraudDetail.fraudAssessment.ruleEngineScore).toFixed(1)}%
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="textSecondary">ML Score</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600 }}>
+                      {Number(fraudDetail.fraudAssessment.mlFraudProbability).toFixed(1)}%
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6} sm={3}>
+                    <Typography variant="caption" color="textSecondary">Risk Level</Typography>
+                    <Typography variant="body1" sx={{ fontWeight: 600, color: '#F59E0B' }}>
+                      {fraudDetail.fraudAssessment.riskLevel}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="caption" color="textSecondary">Fraud Score</Typography>
+                      <LinearProgress
+                        variant="determinate"
+                        value={Math.min(100, Number(fraudDetail.fraudAssessment.hybridFraudScore))}
+                        sx={{
+                          mt: 0.5, height: 8, borderRadius: 4,
+                          bgcolor: 'rgba(255,255,255,0.08)',
+                          '& .MuiLinearProgress-bar': {
+                            background: Number(fraudDetail.fraudAssessment.hybridFraudScore) >= 70
+                              ? 'linear-gradient(90deg,#F59E0B,#EF4444)'
+                              : 'linear-gradient(90deg,#10B981,#06B6D4)',
+                          }
+                        }}
+                      />
+                    </Box>
+                  </Grid>
+                  {fraudDetail.fraudAssessment.explanation && (
+                    <Grid item xs={12}>
+                      <Typography variant="caption" color="textSecondary">Explanation</Typography>
+                      <Typography variant="body2" sx={{ mt: 0.5, color: '#94A3B8', fontSize: '0.8rem' }}>
+                        {fraudDetail.fraudAssessment.explanation}
+                      </Typography>
+                    </Grid>
+                  )}
+                  {fraudDetail.fraudAssessment.reviewedBy && (
+                    <Grid item xs={12}>
+                      <Divider sx={{ my: 1 }} />
+                      <Typography variant="caption" color="textSecondary">
+                        Reviewed by <strong>{fraudDetail.fraudAssessment.reviewedBy}</strong>
+                        {fraudDetail.fraudAssessment.reviewedAt && ` on ${format(new Date(fraudDetail.fraudAssessment.reviewedAt), 'MMM d, yyyy')}`}
+                      </Typography>
+                      {fraudDetail.fraudAssessment.reviewerNotes && (
+                        <Typography variant="body2" sx={{ color: '#94A3B8', mt: 0.5 }}>
+                          {fraudDetail.fraudAssessment.reviewerNotes}
+                        </Typography>
+                      )}
+                    </Grid>
+                  )}
+                </Grid>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Status Timeline */}
           <Card sx={isHighRisk ? { border: '1px solid rgba(239,68,68,0.35)', backgroundColor: 'rgba(239,68,68,0.04)' } : undefined}>
             <CardContent>
@@ -262,6 +385,35 @@ function PaymentDetail() {
                 Quick Actions
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {/* Fraud review actions for SUSPICIOUS payments */}
+                {isSuspicious && (
+                  <Alert severity="warning" sx={{ mb: 1, fontSize: '0.8rem' }}>
+                    ⚠️ This payment is pending fraud review.
+                  </Alert>
+                )}
+                {isSuspicious && (
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    color="success"
+                    onClick={handleFraudApprove}
+                    disabled={!!fraudAction}
+                    sx={{ background: 'linear-gradient(135deg,#10B981,#059669)' }}
+                  >
+                    {fraudAction === 'approving' ? <CircularProgress size={18} /> : '✅ Approve Payment'}
+                  </Button>
+                )}
+                {isSuspicious && (
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    color="error"
+                    onClick={handleFraudReject}
+                    disabled={!!fraudAction}
+                  >
+                    {fraudAction === 'rejecting' ? <CircularProgress size={18} /> : '🚫 Reject Payment'}
+                  </Button>
+                )}
                 {isSuccessfulPaymentStatus(payment.status) && (
                   <Button
                     variant="contained"

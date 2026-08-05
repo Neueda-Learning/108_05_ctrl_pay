@@ -27,16 +27,23 @@ public class StatusTransitionValidator {
     }
     
     /**
-     * Check if a status transition is allowed.
+     * Validator for payment status transitions.
+     * Enforces the payment lifecycle state machine:
+     * CREATED → VALIDATED/SUSPICIOUS → SENT → COMPLETED/FAILED
+     * SUSPICIOUS → VALIDATED/FAILED (admin review)
      * 
-     * @param fromStatus current status
-     * @param toStatus desired status
-     * @return true if transition is valid, false otherwise
+     * Invalid transitions are rejected with clear error messages.
      */
     public static boolean isTransitionAllowed(PaymentStatus fromStatus, PaymentStatus toStatus) {
         return switch (fromStatus) {
-            case CREATED -> toStatus == PaymentStatus.VALIDATED || toStatus == PaymentStatus.FAILED;
-            case VALIDATED -> toStatus == PaymentStatus.SENT || toStatus == PaymentStatus.FAILED;
+            case CREATED -> toStatus == PaymentStatus.VALIDATED || 
+                           toStatus == PaymentStatus.SUSPICIOUS || 
+                           toStatus == PaymentStatus.FAILED;
+            case VALIDATED -> toStatus == PaymentStatus.SENT || 
+                             toStatus == PaymentStatus.SUSPICIOUS || 
+                             toStatus == PaymentStatus.FAILED;
+            case SUSPICIOUS -> toStatus == PaymentStatus.VALIDATED || 
+                              toStatus == PaymentStatus.FAILED; // Admin review decision
             case SENT -> toStatus == PaymentStatus.COMPLETED || toStatus == PaymentStatus.FAILED;
             case COMPLETED, FAILED -> false; // Terminal states - no transitions allowed
         };

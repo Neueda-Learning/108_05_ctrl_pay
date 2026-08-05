@@ -124,6 +124,30 @@ export const fraudAPI = {
   predict: (data) => fraudApiClient.post('/predict-json', data),
 };
 
+// Admin Fraud Dashboard API
+export const adminFraudAPI = {
+  // Get suspicious transactions pending review
+  getSuspiciousTransactions: (params) => apiClient.get('/admin/fraud/transactions', { params }),
+
+  // Get detailed fraud investigation for a payment
+  getPaymentFraudDetail: (id) => apiClient.get(`/admin/fraud/payment/${id}`),
+
+  // Approve a suspicious payment
+  approvePayment: (id, data) => apiClient.post(`/admin/fraud/payment/${id}/approve`, data),
+
+  // Reject a suspicious payment
+  rejectPayment: (id, data) => apiClient.post(`/admin/fraud/payment/${id}/reject`, data),
+
+  // Get fraud statistics
+  getStats: () => apiClient.get('/admin/fraud/stats'),
+
+  // Get pending review queue
+  getPending: (params) => apiClient.get('/admin/fraud/pending', { params }),
+
+  // Refresh account risk status
+  refreshAccountRisk: (accountNumber) => apiClient.post(`/admin/fraud/account/${accountNumber}/refresh-risk`),
+};
+
 
 // Health API
 export const healthAPI = {

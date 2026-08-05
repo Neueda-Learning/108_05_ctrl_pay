@@ -15,6 +15,7 @@ import RulesManagement from './pages/RulesManagement';
 import Analytics from './pages/Analytics';
 import AuthPage from './pages/AuthPage';
 import CustomerProfile from './pages/CustomerProfile';
+import FraudDashboard from './pages/FraudDashboard';
 import { CustomerProvider } from './context/CustomerContext';
 
 // Create professional theme
@@ -294,6 +295,7 @@ function App() {
               <Route path="/rules" element={<RulesManagement />} />
               <Route path="/statistics" element={<Analytics />} />
               <Route path="/analytics" element={<Navigate to="/statistics" replace />} />
+              <Route path="/fraud" element={<FraudDashboard />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </Layout>
