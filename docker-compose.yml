@@ -6,9 +6,9 @@ services:
     container_name: ctrl-pay-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-me}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-ctrl_pay}
-      TZ: ${TZ:-UTC}
+      MYSQL_ROOT_PASSWORD: admin123
+      MYSQL_DATABASE: ctrl_pay
+      TZ: UTC
     volumes:
       - mysql_data:/var/lib/mysql
       - ./backend/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
@@ -45,13 +45,13 @@ services:
     container_name: ctrl-pay-backend
     restart: unless-stopped
     environment:
-      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-docker}
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-ctrl_pay}?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
-      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME:-root}
-      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD:-change-me}
-      FRAUD_API_BASE_URL: ${FRAUD_API_BASE_URL:-http://ml:5000}
-      JAVA_OPTS: ${JAVA_OPTS:--Xmx768m -Xms256m}
-      TZ: ${TZ:-UTC}
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ctrl_pay?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: admin123
+      FRAUD_API_BASE_URL: http://ml:5000
+      JAVA_OPTS: -Xmx768m -Xms256m
+      TZ: UTC
     depends_on:
       mysql:
         condition: service_healthy
@@ -71,8 +71,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        REACT_APP_API_URL: ${REACT_APP_API_URL:-/api}
-        REACT_APP_FRAUD_API_URL: ${REACT_APP_FRAUD_API_URL:-/ml}
+        REACT_APP_API_URL: /api
+        REACT_APP_FRAUD_API_URL: /ml
     container_name: ctrl-pay-frontend
     restart: unless-stopped
     depends_on:
@@ -81,7 +81,7 @@ services:
       ml:
         condition: service_healthy
     ports:
-      - "${NGINX_PORT:-8080}:80"
+      - "8080:80"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
       interval: 30s

@@ -30,27 +30,9 @@ Traffic flow:
 
 Only `frontend` is exposed publicly by default.
 
-## Environment Variables
+## Runtime Configuration
 
-Copy and edit:
-
-```bash
-cp .env.example .env
-```
-
-Key variables:
-
-- `NGINX_PORT` - public HTTP port
-- `MYSQL_DATABASE` - MySQL database name
-- `MYSQL_ROOT_PASSWORD` - MySQL root password
-- `SPRING_PROFILES_ACTIVE` - backend profile (`docker` by default)
-- `SPRING_DATASOURCE_USERNAME` / `SPRING_DATASOURCE_PASSWORD` - backend DB credentials
-- `FRAUD_API_BASE_URL` - backend-to-ML endpoint (default `http://ml:5000`)
-- `JAVA_OPTS` - backend JVM memory tuning
-- `REACT_APP_API_URL` - frontend API base for build (`/api` in containers)
-- `REACT_APP_FRAUD_API_URL` - frontend ML base for build (`/ml` in containers)
-
-Do not commit real secrets.
+Runtime values are defined directly in `docker-compose.yml` (no `.env` file required).
 
 ## Docker Usage
 

@@ -71,7 +71,6 @@ PY
 
         stage('Stop Existing Containers') {
             steps {
-                sh 'test -f .env || (echo ".env file is required on Jenkins/Linux host" && exit 1)'
                 sh 'docker-compose down || true'
             }
         }
