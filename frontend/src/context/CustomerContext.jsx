@@ -4,62 +4,205 @@ import { accountAPI, customerAPI } from '../services/api';
 const CustomerContext = createContext(null);
 
 export function CustomerProvider({ children }) {
-  const [customerId, setCustomerId] = useState('');
-  const [customer, setCustomer] = useState(null);
-  const [accounts, setAccounts] = useState([]);
-  const [loadingCustomer, setLoadingCustomer] = useState(false);
+  // Primary state
+  const [currentCustomer, setCurrentCustomer] = useState(null);
+  const [customerAccounts, setCustomerAccounts] = useState([]);
 
+  // Loading states - granular control
+  const [loading, setLoading] = useState({
+    customer: false,
+    accounts: false,
+    creating: false,
+  });
+
+  // Error states - per section
+  const [error, setError] = useState({
+    customer: null,
+    accounts: null,
+    creating: null,
+  });
+
+  // Legacy fields for backward compatibility
+  const customerId = currentCustomer?.customerId || '';
+  const customer = currentCustomer;
+  const accounts = customerAccounts;
+
+  /**
+   * Internal: Clear all customer context
+   */
+  const _clearAll = useCallback(() => {
+    setCurrentCustomer(null);
+    setCustomerAccounts([]);
+    setError({ customer: null, accounts: null, creating: null });
+  }, []);
+
+  /**
+   * Load customer by ID - fetches customer + accounts
+   */
   const loadCustomer = useCallback(async (inputCustomerId) => {
     const normalizedCustomerId = String(inputCustomerId || '').trim();
     if (!normalizedCustomerId) {
-      throw new Error('Customer ID is required');
+      const errorMsg = 'Customer ID is required';
+      setError((prev) => ({ ...prev, customer: errorMsg }));
+      throw new Error(errorMsg);
     }
 
-    setLoadingCustomer(true);
-    try {
-      const customerRes = await customerAPI.getCustomer(normalizedCustomerId);
-      let accountsData = [];
+    setLoading((prev) => ({ ...prev, customer: true, accounts: true }));
+    setError((prev) => ({ ...prev, customer: null, accounts: null }));
 
+    try {
+      // Fetch customer details
+      const customerRes = await customerAPI.getCustomer(normalizedCustomerId);
+      setCurrentCustomer(customerRes.data);
+
+      // Fetch customer accounts
+      let accountsData = [];
       try {
         const accountsRes = await accountAPI.listAccountsByCustomer(normalizedCustomerId);
         accountsData = Array.isArray(accountsRes.data) ? accountsRes.data : [];
-      } catch {
+      } catch (accountError) {
+        console.error('Failed to load accounts:', accountError);
+        setError((prev) => ({ ...prev, accounts: accountError.message }));
         accountsData = [];
       }
 
-      setCustomerId(normalizedCustomerId);
-      setCustomer(customerRes.data);
-      setAccounts(accountsData);
+      setCustomerAccounts(accountsData);
       return { customer: customerRes.data, accounts: accountsData };
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to load customer';
+      setError((prev) => ({ ...prev, customer: errorMsg }));
+      setCurrentCustomer(null);
+      setCustomerAccounts([]);
+      throw err;
     } finally {
-      setLoadingCustomer(false);
+      setLoading((prev) => ({ ...prev, customer: false, accounts: false }));
     }
   }, []);
 
-  const refreshCurrentCustomer = useCallback(async () => {
-    if (!customerId) {
+  /**
+   * Select a different customer - clears old, loads new
+   * Use this when switching customers
+   */
+  const selectCustomer = useCallback(
+    async (inputCustomerId) => {
+      _clearAll();
+      return loadCustomer(inputCustomerId);
+    },
+    [loadCustomer, _clearAll]
+  );
+
+  /**
+   * Refresh only the accounts for current customer
+   * Use after creating a new account
+   */
+  const refreshAccounts = useCallback(async () => {
+    if (!currentCustomer?.customerId) {
       return;
     }
 
-    return loadCustomer(customerId);
-  }, [customerId, loadCustomer]);
+    setLoading((prev) => ({ ...prev, accounts: true }));
+    setError((prev) => ({ ...prev, accounts: null }));
 
+    try {
+      const accountsRes = await accountAPI.listAccountsByCustomer(currentCustomer.customerId);
+      const accountsData = Array.isArray(accountsRes.data) ? accountsRes.data : [];
+      setCustomerAccounts(accountsData);
+      return accountsData;
+    } catch (err) {
+      const errorMsg = err.response?.data?.message || err.message || 'Failed to load accounts';
+      setError((prev) => ({ ...prev, accounts: errorMsg }));
+      throw err;
+    } finally {
+      setLoading((prev) => ({ ...prev, accounts: false }));
+    }
+  }, [currentCustomer?.customerId]);
+
+  /**
+   * Refresh current customer details
+   */
+  const refreshCurrentCustomer = useCallback(async () => {
+    if (!currentCustomer?.customerId) {
+      return;
+    }
+
+    return loadCustomer(currentCustomer.customerId);
+  }, [currentCustomer?.customerId, loadCustomer]);
+
+  /**
+   * Clear customer context
+   */
   const clearCustomer = useCallback(() => {
-    setCustomerId('');
-    setCustomer(null);
-    setAccounts([]);
+    _clearAll();
+  }, [_clearAll]);
+
+  /**
+   * Set error for a specific section
+   */
+  const setErrorForField = useCallback((field, message) => {
+    setError((prev) => ({ ...prev, [field]: message }));
   }, []);
 
-  const value = useMemo(() => ({
-    customerId,
-    customer,
-    accounts,
-    loadingCustomer,
-    setCustomerId,
-    loadCustomer,
-    refreshCurrentCustomer,
-    clearCustomer,
-  }), [accounts, clearCustomer, customer, customerId, loadCustomer, loadingCustomer, refreshCurrentCustomer]);
+  /**
+   * Clear error for a specific section
+   */
+  const clearErrorForField = useCallback((field) => {
+    setError((prev) => ({ ...prev, [field]: null }));
+  }, []);
+
+  /**
+   * Mark creating state (for payments, accounts, etc)
+   */
+  const setCreating = useCallback((isCreating) => {
+    setLoading((prev) => ({ ...prev, creating: isCreating }));
+  }, []);
+
+  const value = useMemo(
+    () => ({
+      // Primary state
+      currentCustomer,
+      customerAccounts,
+      loading,
+      error,
+
+      // Legacy fields for backward compatibility
+      customerId,
+      customer,
+      accounts,
+      loadingCustomer: loading.customer,
+
+      // Methods
+      loadCustomer,
+      selectCustomer,
+      refreshAccounts,
+      refreshCurrentCustomer,
+      clearCustomer,
+      setErrorForField,
+      clearErrorForField,
+      setCreating,
+
+      // Keep for backward compatibility but deprecated
+      setCustomerId: (_id) => {
+        console.warn('setCustomerId is deprecated, use loadCustomer() instead');
+      },
+    }),
+    [
+      currentCustomer,
+      customerAccounts,
+      loading,
+      error,
+      customerId,
+      customer,
+      accounts,
+      loadCustomer,
+      selectCustomer,
+      refreshAccounts,
+      refreshCurrentCustomer,
+      clearCustomer,
+      setErrorForField,
+      clearErrorForField,
+      setCreating,
+    ]
+  );
 
   return <CustomerContext.Provider value={value}>{children}</CustomerContext.Provider>;
 }

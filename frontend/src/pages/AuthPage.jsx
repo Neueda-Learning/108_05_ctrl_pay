@@ -18,9 +18,9 @@ import { useCustomer } from '../context/CustomerContext';
 
 function AuthPage() {
   const navigate = useNavigate();
-  const { setCustomerId } = useCustomer();
+  const { clearCustomer, loadCustomer } = useCustomer();
   const [loading, setLoading] = useState(false);
-  const [createdCustomerId, setCreatedCustomerId] = useState('');
+  const [createdCustomer, setCreatedCustomer] = useState(null);
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm({
     defaultValues: {
@@ -35,20 +35,36 @@ function AuthPage() {
   const handleCreateCustomer = async (values) => {
     try {
       setLoading(true);
+
+      // Create customer
       const response = await customerAPI.createCustomer({
         ...values,
         panNumber: values.panNumber.toUpperCase(),
       });
 
       const customerId = response.data?.customerId || response.data?.id || response.data?.customer_id;
-      if (customerId) {
-        setCreatedCustomerId(customerId);
-        setCustomerId(customerId);
+      if (!customerId) {
+        throw new Error('Server did not return customer ID');
       }
 
-      toast.success('Customer profile created successfully');
-      reset();
+      // Clear previous context before loading new customer
+      clearCustomer();
+
+      // Auto-load the newly created customer into context
+      try {
+        const loadedData = await loadCustomer(customerId);
+        setCreatedCustomer(loadedData.customer);
+        toast.success(`Customer profile created successfully: ${loadedData.customer.name}`);
+        reset();
+      } catch (loadError) {
+        console.error('Error loading newly created customer:', loadError);
+        // Even if auto-load fails, customer was created successfully
+        setCreatedCustomer({ customerId, name: values.name });
+        toast.warning('Customer created, but auto-load failed. You can load it manually on the Dashboard.');
+        reset();
+      }
     } catch (error) {
+      console.error('Error creating customer:', error);
       toast.error(error.response?.data?.message || 'Could not create customer profile');
     } finally {
       setLoading(false);
@@ -66,12 +82,15 @@ function AuthPage() {
         </Typography>
       </Box>
 
-      {createdCustomerId && (
+      {createdCustomer && (
         <Alert severity="success" sx={{ mb: 3 }}>
-          Customer profile created. New Customer ID: <strong>{createdCustomerId}</strong>
-          <Box sx={{ mt: 1 }}>
+          Customer profile created and loaded successfully!
+          <Box sx={{ mt: 1, fontWeight: 600 }}>
+            Name: {createdCustomer.name} | ID: {createdCustomer.customerId}
+          </Box>
+          <Box sx={{ mt: 2 }}>
             <Button variant="contained" size="small" onClick={() => navigate('/accounts/new')}>
-              Create Account for This Customer
+              Create Account for {createdCustomer.name}
             </Button>
           </Box>
         </Alert>

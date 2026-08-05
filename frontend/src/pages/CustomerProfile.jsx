@@ -20,15 +20,18 @@ import { useCustomer } from '../context/CustomerContext';
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
 function CustomerProfile() {
-  const { customerId, customer, accounts, loadCustomer, loadingCustomer, clearCustomer } = useCustomer();
-  const [customerIdInput, setCustomerIdInput] = useState(customerId || '');
+  const { currentCustomer, customerAccounts, loading, selectCustomer, refreshAccounts, clearCustomer, setCreating, setErrorForField } = useCustomer();
+  const [customerIdInput, setCustomerIdInput] = useState(currentCustomer?.customerId || '');
   const [submitting, setSubmitting] = useState(false);
   const [currencies, setCurrencies] = useState([]);
   const [loadingCurrencies, setLoadingCurrencies] = useState(true);
 
+  // Sync input with current customer
   useEffect(() => {
-    setCustomerIdInput(customerId || '');
-  }, [customerId]);
+    if (currentCustomer?.customerId) {
+      setCustomerIdInput(currentCustomer.customerId);
+    }
+  }, [currentCustomer?.customerId]);
 
   // Load currencies on component mount
   useEffect(() => {
@@ -65,21 +68,28 @@ function CustomerProfile() {
 
   const handleLoadCustomer = async () => {
     try {
-      await loadCustomer(customerIdInput);
+      // If switching customer, clear previous context first
+      if (currentCustomer?.customerId && currentCustomer.customerId !== customerIdInput) {
+        clearCustomer();
+      }
+      await selectCustomer(customerIdInput);
     } catch (error) {
+      setErrorForField('customer', error.response?.data?.message || error.message || 'Unable to load customer');
       toast.error(error.response?.data?.message || error.message || 'Unable to load customer');
     }
   };
 
   const onSubmit = async (values) => {
-    if (!customer?.customerId) {
+    if (!currentCustomer?.customerId) {
       toast.error('Load and validate a customer ID before creating an account');
       return;
     }
 
     try {
       setSubmitting(true);
-      await accountAPI.createAccount(customer.customerId, {
+      setCreating(true);
+
+      await accountAPI.createAccount(currentCustomer.customerId, {
         accountNumber: values.accountNumber,
         accountName: values.accountName,
         accountBalance: parseFloat(values.accountBalance),
@@ -103,11 +113,15 @@ function CustomerProfile() {
         bankName: '',
         accountPin: '',
       });
-      await loadCustomer(customer.customerId);
+
+      // Refresh only accounts, not entire customer
+      await refreshAccounts();
     } catch (error) {
+      setErrorForField('creating', error.response?.data?.message || 'Unable to add account');
       toast.error(error.response?.data?.message || 'Unable to add account');
     } finally {
       setSubmitting(false);
+      setCreating(false);
     }
   };
 
@@ -137,16 +151,20 @@ function CustomerProfile() {
                   fullWidth
                 />
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Button variant="contained" onClick={handleLoadCustomer} disabled={loadingCustomer}>
-                    {loadingCustomer ? 'Validating...' : 'Validate Customer'}
+                  <Button
+                    variant="contained"
+                    onClick={handleLoadCustomer}
+                    disabled={loading.customer}
+                  >
+                    {loading.customer ? 'Validating...' : 'Validate Customer'}
                   </Button>
                   <Button variant="outlined" onClick={clearCustomer}>
                     Clear
                   </Button>
                 </Box>
-                {customer && (
+                {currentCustomer && (
                   <Alert severity="success">
-                    Loaded {customer.name} ({customer.customerId}) with {accounts.length} account(s).
+                    Loaded {currentCustomer.name} ({currentCustomer.customerId}) with {customerAccounts.length} account(s).
                   </Alert>
                 )}
               </Stack>
@@ -158,13 +176,13 @@ function CustomerProfile() {
               <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
                 Existing Accounts
               </Typography>
-              {accounts.length === 0 ? (
+              {customerAccounts.length === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   No accounts loaded for the selected customer.
                 </Typography>
               ) : (
                 <Stack spacing={1.5}>
-                  {accounts.map((account) => (
+                  {customerAccounts.map((account) => (
                     <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                         {account.accountName}
@@ -377,7 +395,7 @@ function CustomerProfile() {
                     />
                   </Grid>
                   <Grid item xs={12}>
-                    <Button type="submit" variant="contained" disabled={submitting || !customer}>
+                    <Button type="submit" variant="contained" disabled={submitting || !currentCustomer}>
                       {submitting ? <CircularProgress size={20} /> : 'Create Account'}
                     </Button>
                   </Grid>

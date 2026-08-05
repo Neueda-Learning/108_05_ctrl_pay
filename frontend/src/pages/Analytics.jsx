@@ -70,23 +70,27 @@ const GRID_SX = {
 };
 
 function Analytics() {
-  const { customerId, customer, accounts, loadCustomer, loadingCustomer } = useCustomer();
-  const [customerIdInput, setCustomerIdInput] = useState(customerId || '');
+  const { currentCustomer, customerAccounts, loading, error, selectCustomer, clearErrorForField } = useCustomer();
+
+  const [customerIdInput, setCustomerIdInput] = useState(currentCustomer?.customerId || '');
   const [filters, setFilters] = useState({
     status: '',
     account: '',
     dateFrom: '',
     dateTo: '',
   });
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   const [payments, setPayments] = useState([]);
 
+  // Sync input with current customer
   useEffect(() => {
-    setCustomerIdInput(customerId || '');
-  }, [customerId]);
+    if (currentCustomer?.customerId) {
+      setCustomerIdInput(currentCustomer.customerId);
+    }
+  }, [currentCustomer?.customerId]);
 
-  const accountOptions = useMemo(() => (Array.isArray(accounts) ? accounts : []), [accounts]);
+  const accountOptions = useMemo(() => (Array.isArray(customerAccounts) ? customerAccounts : []), [customerAccounts]);
 
   const getAccountValue = (account) => (
     account?.accountNumber
@@ -98,10 +102,13 @@ function Analytics() {
 
   const getAccountLabel = (account) => `${account?.accountName || 'Account'}${getAccountValue(account) ? ` (${getAccountValue(account)})` : ''}`;
 
+  /**
+   * Fetch payments for current customer with filters
+   */
   const fetchCustomerPayments = async (customerId, currentFilters = filters) => {
     try {
-      setLoading(true);
-      setError('');
+      setPaymentLoading(true);
+      setPaymentError('');
 
       const params = {
         ...(currentFilters.status && { status: currentFilters.status }),
@@ -122,28 +129,43 @@ function Analytics() {
         ...payment,
       })));
     } catch (fetchError) {
-      setError(fetchError.response?.data?.message || fetchError.message || 'Unable to load payment statistics');
+      setPaymentError(fetchError.response?.data?.message || fetchError.message || 'Unable to load payment statistics');
       setPayments([]);
     } finally {
-      setLoading(false);
+      setPaymentLoading(false);
     }
   };
 
+  /**
+   * Load customer dashboard - switches customer if ID different
+   */
   const handleLoadDashboard = async () => {
     try {
-      const loadedCustomer = await loadCustomer(customerIdInput);
-      const customerId = loadedCustomer?.customer?.customerId || customerIdInput;
-      await fetchCustomerPayments(customerId, filters);
+      setPaymentError('');
+
+      // If customer already loaded and ID matches, just fetch payments
+      if (currentCustomer?.customerId === customerIdInput) {
+        await fetchCustomerPayments(customerIdInput, filters);
+        return;
+      }
+
+      // Otherwise, select new customer (which clears old and loads new)
+      await selectCustomer(customerIdInput);
+      // After customer loaded, fetch payments
+      await fetchCustomerPayments(customerIdInput, filters);
     } catch (loadError) {
-      setError(loadError.response?.data?.message || loadError.message || 'Unable to load customer');
+      setPaymentError(loadError.response?.data?.message || loadError.message || 'Unable to load customer');
       setPayments([]);
     }
   };
 
+  /**
+   * Apply filters to current customer's payments
+   */
   const handleApplyFilters = async () => {
-    const customerId = customer?.customerId || customerIdInput;
+    const customerId = currentCustomer?.customerId || customerIdInput;
     if (!customerId) {
-      setError('Enter a Customer ID before applying filters');
+      setPaymentError('Enter a Customer ID before applying filters');
       return;
     }
     await fetchCustomerPayments(customerId, filters);
@@ -169,7 +191,7 @@ function Analytics() {
     },
     {
       label:          'Successful',
-      value:          summary.successful,
+      value:          successful,
       icon:           '✓',
       gradient:       'linear-gradient(135deg, #10B981 0%, #34D399 100%)',
       borderGradient: 'rgba(16,185,129,0.55) 0%, rgba(52,211,153,0.30) 100%',
@@ -178,7 +200,7 @@ function Analytics() {
     },
     {
       label:          'Failed / Fraud',
-      value:          summary.failed,
+      value:          failed,
       icon:           '⚠',
       gradient:       'linear-gradient(135deg, #EF4444 0%, #F97316 100%)',
       borderGradient: 'rgba(239,68,68,0.55) 0%, rgba(249,115,22,0.30) 100%',
@@ -187,7 +209,7 @@ function Analytics() {
     },
     {
       label:          'Pending / Other',
-      value:          summary.pending,
+      value:          pending,
       icon:           '◷',
       gradient:       'linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%)',
       borderGradient: 'rgba(245,158,11,0.55) 0%, rgba(251,191,36,0.30) 100%',
@@ -230,6 +252,9 @@ function Analytics() {
     },
   ];
 
+  const isLoading = loading.customer || paymentLoading;
+  const displayError = error.customer || paymentError;
+
   return (
     <Box>
       <Box sx={{ mb: 4 }}>
@@ -254,19 +279,19 @@ function Analytics() {
               />
             </Grid>
             <Grid item xs={12} md={4}>
-              <Button variant="contained" onClick={handleLoadDashboard} disabled={loadingCustomer || loading} fullWidth>
-                {(loadingCustomer || loading) ? 'Loading...' : 'Load Statistics'}
+              <Button variant="contained" onClick={handleLoadDashboard} disabled={isLoading} fullWidth>
+                {isLoading ? 'Loading...' : 'Load Statistics'}
               </Button>
             </Grid>
           </Grid>
-          {error && (
+          {displayError && (
             <Alert severity="error" sx={{ mt: 2 }}>
-              {error}
+              {displayError}
             </Alert>
           )}
-          {customer && (
+          {currentCustomer && (
             <Alert severity="success" sx={{ mt: 2 }}>
-              Showing payment data for {customer.name} ({customer.customerId}).
+              Showing payment data for {currentCustomer.name} ({currentCustomer.customerId}).
             </Alert>
           )}
         </CardContent>
@@ -387,7 +412,7 @@ function Analytics() {
             </Grid>
             <Grid item xs={12}>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                <Button variant="contained" onClick={handleApplyFilters} disabled={loading}>
+                <Button variant="contained" onClick={handleApplyFilters} disabled={paymentLoading}>
                   Apply Filters
                 </Button>
                 <Button
@@ -407,7 +432,7 @@ function Analytics() {
           <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
             Payment Details
           </Typography>
-          {loading ? (
+          {paymentLoading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
               <CircularProgress />
             </Box>
