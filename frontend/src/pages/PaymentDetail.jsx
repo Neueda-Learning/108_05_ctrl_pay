@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 import {
   Alert,
   Box,
@@ -12,6 +13,7 @@ import {
   Chip,
   Divider,
   Stack,
+  useTheme,
 } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { paymentAPI } from '../services/api';
@@ -33,6 +35,7 @@ const statusColors = {
 };
 
 function PaymentDetail() {
+  const theme = useTheme();
   const { id } = useParams();
   const navigate = useNavigate();
   const { customerId } = useCustomer();
@@ -201,11 +204,15 @@ function PaymentDetail() {
                         display: 'flex',
                         gap: 2,
                         pb: idx < history.length - 1 ? 2 : 0,
+<<<<<<< Updated upstream
                         borderBottom: idx < history.length - 1
                           ? isHighRisk
                             ? '1px solid rgba(239,68,68,0.25)'
                             : '1px solid rgba(99,102,241,0.15)'
                           : 'none',
+=======
+                        borderBottom: idx < history.length - 1 ? `1px solid ${alpha(theme.palette.primary.main, 0.2)}` : 'none',
+>>>>>>> Stashed changes
                       }}
                     >
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -228,7 +235,7 @@ function PaymentDetail() {
                             sx={{
                               width: 2,
                               height: 20,
-                              backgroundColor: '#1E1B4B',
+                              backgroundColor: alpha(theme.palette.primary.main, 0.35),
                               mt: 1,
                             }}
                           />
@@ -292,9 +299,6 @@ function PaymentDetail() {
                     Retry
                   </Button>
                 )}
-                <Button variant="outlined" fullWidth>
-                  Mark Failed
-                </Button>
               </Box>
 
               {receiptError && (

@@ -165,7 +165,7 @@ function CustomerProfile() {
               ) : (
                 <Stack spacing={1.5}>
                   {accounts.map((account) => (
-                    <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
+                    <Box key={account.accountId || account.id} sx={{ p: 1.5, border: (theme) => `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
                         {account.accountName}
                       </Typography>

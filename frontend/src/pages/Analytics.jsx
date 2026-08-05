@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { alpha } from '@mui/material/styles';
 import {
   Alert,
   Box,
@@ -10,6 +11,7 @@ import {
   MenuItem,
   TextField,
   Typography,
+  useTheme,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { format } from 'date-fns';
@@ -17,62 +19,73 @@ import { customerAPI } from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
 import StatusBadge from '../components/StatusBadge';
 
-const GRID_SX = {
-  border: 'none',
-  background: 'transparent',
-  '& .MuiDataGrid-columnHeaders': {
-    background:    '#1E293B',
-    borderBottom:  '1px solid rgba(255,255,255,0.08)',
-    borderRadius:  0,
-    minHeight:     '48px !important',
-  },
-  '& .MuiDataGrid-columnHeaderTitle': {
-    color:         '#94A3B8',
-    fontWeight:    700,
-    fontSize:      '0.68rem',
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
-  },
-  '& .MuiDataGrid-columnSeparator': { color: 'rgba(255,255,255,0.08)' },
-  '& .MuiDataGrid-row': {
-    background:  '#0F172A',
-    transition:  'background 0.2s ease',
-    '&:hover':   { background: 'rgba(99,102,241,0.08)' },
-    '&.Mui-selected': {
-      background: 'rgba(99,102,241,0.12)',
-      '&:hover':  { background: 'rgba(99,102,241,0.16)' },
+const getGridSx = (theme) => {
+  const custom = theme.customTokens;
+
+  return {
+    border: 'none',
+    background: 'transparent',
+    '& .MuiDataGrid-columnHeaders': {
+      background: custom.gridHeader,
+      borderBottom: `1px solid ${alpha(custom.border, 0.75)}`,
+      borderRadius: 0,
+      minHeight: '48px !important',
     },
-  },
-  '& .MuiDataGrid-cell': {
-    color:        '#CBD5E1',
-    fontSize:     '0.875rem',
-    borderBottom: '1px solid rgba(255,255,255,0.04)',
-    display:      'flex',
-    alignItems:   'center',
-  },
-  '& .MuiDataGrid-footerContainer': {
-    background:  '#1E293B',
-    borderTop:   '1px solid rgba(255,255,255,0.08)',
-  },
-  '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-    color:    '#94A3B8',
-    fontSize: '0.8rem',
-  },
-  '& .MuiTablePagination-select': { color: '#CBD5E1' },
-  '& .MuiDataGrid-iconButtonContainer .MuiIconButton-root, & .MuiTablePagination-actions .MuiIconButton-root': {
-    color:     '#64748B',
-    '&:hover': { background: 'rgba(99,102,241,0.1)', color: '#818CF8' },
-    '&.Mui-disabled': { color: '#1E293B' },
-  },
-  '& .MuiDataGrid-overlay': { background: 'rgba(11,17,32,0.85)', color: '#94A3B8' },
-  '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
-  '& .MuiDataGrid-withBorderColor': { borderColor: 'rgba(255,255,255,0.05)' },
+    '& .MuiDataGrid-columnHeaderTitle': {
+      color: custom.text.secondary,
+      fontWeight: 700,
+      fontSize: '0.68rem',
+      letterSpacing: 0.9,
+      textTransform: 'uppercase',
+    },
+    '& .MuiDataGrid-columnSeparator': { color: alpha(custom.border, 0.75) },
+    '& .MuiDataGrid-row': {
+      background: custom.gridRow,
+      transition: custom.transition,
+      '&:hover': { background: alpha(custom.brand.main, 0.08) },
+      '&.Mui-selected': {
+        background: alpha(custom.brand.main, 0.12),
+        '&:hover': { background: alpha(custom.brand.main, 0.16) },
+      },
+    },
+    '& .MuiDataGrid-cell': {
+      color: custom.text.secondary,
+      fontSize: '0.875rem',
+      borderBottom: `1px solid ${alpha(custom.border, 0.45)}`,
+      display: 'flex',
+      alignItems: 'center',
+    },
+    '& .MuiDataGrid-footerContainer': {
+      background: custom.gridHeader,
+      borderTop: `1px solid ${alpha(custom.border, 0.75)}`,
+    },
+    '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+      color: custom.text.secondary,
+      fontSize: '0.8rem',
+    },
+    '& .MuiTablePagination-select': { color: custom.text.primary },
+    '& .MuiDataGrid-iconButtonContainer .MuiIconButton-root, & .MuiTablePagination-actions .MuiIconButton-root': {
+      color: custom.text.muted,
+      '&:hover': { background: alpha(custom.brand.main, 0.1), color: custom.brand.accent },
+      '&.Mui-disabled': { color: alpha(custom.text.muted, 0.5) },
+    },
+    '& .MuiDataGrid-overlay': { background: custom.gridOverlay, color: custom.text.secondary },
+    '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
+    '& .MuiDataGrid-withBorderColor': { borderColor: alpha(custom.border, 0.6) },
+  };
 };
 
 function Analytics() {
+<<<<<<< Updated upstream
   const { currentCustomer, customerAccounts, loading, error, selectCustomer, clearErrorForField } = useCustomer();
 
   const [customerIdInput, setCustomerIdInput] = useState(currentCustomer?.customerId || '');
+=======
+  const theme = useTheme();
+  const custom = theme.customTokens;
+  const { customerId, customer, accounts, loadCustomer, loadingCustomer } = useCustomer();
+  const [customerIdInput, setCustomerIdInput] = useState(customerId || '');
+>>>>>>> Stashed changes
   const [filters, setFilters] = useState({
     status: '',
     account: '',
@@ -303,7 +316,7 @@ function Analytics() {
             <Card
               sx={{
                 background:
-                  `linear-gradient(rgba(11,17,32,0.9), rgba(11,17,32,0.9)) padding-box,` +
+                  `linear-gradient(${alpha(custom.background.card, 0.9)}, ${alpha(custom.background.card, 0.9)}) padding-box,` +
                   `linear-gradient(135deg, ${card.borderGradient}) border-box`,
                 border: '1px solid transparent',
                 boxShadow: `0 20px 40px rgba(0,0,0,0.25), 0 0 30px ${card.glow}`,
@@ -311,7 +324,7 @@ function Analytics() {
                   transform: 'translateY(-6px)',
                   boxShadow: `0 28px 50px rgba(0,0,0,0.35), 0 0 40px ${card.glow}`,
                   background:
-                    `linear-gradient(rgba(11,17,32,0.95), rgba(11,17,32,0.95)) padding-box,` +
+                    `linear-gradient(${alpha(custom.background.card, 0.96)}, ${alpha(custom.background.card, 0.96)}) padding-box,` +
                     `linear-gradient(135deg, ${card.borderGradient}) border-box`,
                 },
               }}
@@ -320,7 +333,7 @@ function Analytics() {
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                   <Typography
                     variant="caption"
-                    sx={{ color: '#94A3B8', fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase', fontSize: '0.68rem' }}
+                    sx={{ color: custom.text.secondary, fontWeight: 600, letterSpacing: 0.6, textTransform: 'uppercase', fontSize: '0.68rem' }}
                   >
                     {card.label}
                   </Typography>
@@ -329,7 +342,7 @@ function Analytics() {
                       width: 38, height: 38, borderRadius: '10px',
                       background: card.gradient,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: '1rem', fontWeight: 700, color: '#fff',
+                      fontSize: '1rem', fontWeight: 700, color: '#FFFFFF',
                       boxShadow: `0 4px 16px ${card.glow}`,
                       flexShrink: 0,
                     }}
@@ -444,7 +457,7 @@ function Analytics() {
               pageSizeOptions={[10, 25, 50]}
               initialState={{ pagination: { paginationModel: { pageSize: 10, page: 0 } } }}
               disableRowSelectionOnClick
-              sx={GRID_SX}
+              sx={getGridSx(theme)}
             />
           )}
         </CardContent>

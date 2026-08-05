@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 
 import {
   Box,
@@ -34,6 +35,7 @@ import {
 } from '@mui/icons-material';
 
 import { useCustomer } from '../context/CustomerContext';
+import ThemeToggle from './ThemeToggle';
 
 
 /* ─── constants ──────────────────────────────────────────────────── */
@@ -83,6 +85,7 @@ function Layout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
   const theme    = useTheme();
+  const custom   = theme.customTokens;
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const { customerId, customer, clearCustomer } = useCustomer();
@@ -117,11 +120,11 @@ function Layout({ children }) {
           transition:     'all 0.25s cubic-bezier(0.4,0,0.2,1)',
 
           background: isActive
-            ? 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)'
+            ? `linear-gradient(135deg, ${custom.brand.main} 0%, ${custom.brand.accent} 100%)`
             : 'transparent',
 
           boxShadow: isActive
-            ? '0 4px 20px rgba(99,102,241,0.45), inset 0 1px 0 rgba(255,255,255,0.15)'
+            ? `0 4px 20px ${alpha(custom.brand.main, 0.35)}, inset 0 1px 0 ${alpha(custom.text.primary, 0.12)}`
             : 'none',
 
           '&::before': isActive ? {
@@ -133,13 +136,13 @@ function Layout({ children }) {
           } : {},
 
           '& .MuiListItemIcon-root': {
-            color:      isActive ? '#fff' : '#64748B',
+            color:      isActive ? '#FFFFFF' : custom.text.muted,
             minWidth:   open ? 38 : 'unset',
             transition: 'color 0.25s ease',
           },
 
           '& .MuiListItemText-primary': {
-            color:         isActive ? '#fff' : '#94A3B8',
+            color:         isActive ? '#FFFFFF' : custom.text.secondary,
             fontWeight:    isActive ? 700 : 500,
             fontSize:      '0.875rem',
             letterSpacing: 0.2,
@@ -150,11 +153,11 @@ function Layout({ children }) {
 
           '&:hover': {
             background: isActive
-              ? 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)'
-              : 'rgba(99,102,241,0.15)',
+              ? `linear-gradient(135deg, ${custom.brand.main} 0%, ${custom.brand.accent} 100%)`
+              : custom.hoverOverlay,
             transform: 'translateX(3px)',
-            '& .MuiListItemIcon-root': { color: isActive ? '#fff' : '#818CF8' },
-            '& .MuiListItemText-primary': { color: isActive ? '#fff' : '#E2E8F0' },
+            '& .MuiListItemIcon-root': { color: isActive ? '#FFFFFF' : custom.brand.accent },
+            '& .MuiListItemText-primary': { color: isActive ? '#FFFFFF' : custom.text.primary },
           },
         }}
       >
@@ -192,7 +195,7 @@ function Layout({ children }) {
                 display:       'block',
                 px:            3,
                 py:            '6px',
-                color:         '#334155',
+                color:         custom.text.muted,
                 fontWeight:    700,
                 fontSize:      '0.62rem',
                 letterSpacing: 1.5,
@@ -204,7 +207,7 @@ function Layout({ children }) {
             </Typography>
           ) : (
             si > 0 && (
-              <Divider sx={{ borderColor: 'rgba(255,255,255,0.05)', mx: 1.5, my: 1 }} />
+              <Divider sx={{ borderColor: alpha(custom.border, 0.55), mx: 1.5, my: 1 }} />
             )
           )}
 
@@ -220,7 +223,7 @@ function Layout({ children }) {
       <Box sx={{ flexGrow: 1 }} />
 
 
-      <Divider sx={{ borderColor: 'rgba(255,255,255,0.07)', mx: 1.5, mb: 1.5 }} />
+      <Divider sx={{ borderColor: alpha(custom.border, 0.75), mx: 1.5, mb: 1.5 }} />
 
 
       {/* user profile */}
@@ -232,11 +235,11 @@ function Layout({ children }) {
             gap:            1.5,
             p:              1.5,
             borderRadius:   '12px',
-            background:     'rgba(255,255,255,0.04)',
-            border:         '1px solid rgba(255,255,255,0.07)',
+            background:     custom.mutedOverlay,
+            border:         `1px solid ${alpha(custom.border, 0.8)}`,
             transition:     'background 0.2s ease',
             justifyContent: open ? 'flex-start' : 'center',
-            '&:hover':      { background: 'rgba(255,255,255,0.07)' },
+            '&:hover':      { background: alpha(custom.text.primary, 0.08) },
           }}
         >
           <Avatar
@@ -244,10 +247,10 @@ function Layout({ children }) {
               width:      36,
               height:     36,
               flexShrink: 0,
-              background: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 100%)',
+              background: `linear-gradient(135deg, ${custom.brand.main} 0%, ${custom.brand.accent} 100%)`,
               fontSize:   '0.9rem',
               fontWeight: 700,
-              boxShadow:  '0 2px 10px rgba(99,102,241,0.5)',
+              boxShadow:  `0 2px 10px ${alpha(custom.brand.main, 0.5)}`,
             }}
           >
             {customer?.name?.[0]?.toUpperCase() || 'U'}
@@ -260,7 +263,7 @@ function Layout({ children }) {
                   variant="body2"
                   sx={{
                     fontWeight:   600,
-                    color:        '#E2E8F0',
+                    color:        custom.text.primary,
                     whiteSpace:   'nowrap',
                     overflow:     'hidden',
                     textOverflow: 'ellipsis',
@@ -269,7 +272,7 @@ function Layout({ children }) {
                 >
                   {customer?.name || 'Guest User'}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#475569', fontSize: '0.7rem' }}>
+                <Typography variant="caption" sx={{ color: custom.text.muted, fontSize: '0.7rem' }}>
                   {customerId ? `ID: ${customerId}` : 'No customer selected'}
                 </Typography>
               </Box>
@@ -280,9 +283,9 @@ function Layout({ children }) {
                     size="small"
                     onClick={handleClearCustomer}
                     sx={{
-                      color:      '#475569',
+                      color:      custom.text.muted,
                       flexShrink: 0,
-                      '&:hover':  { color: '#EF4444', background: 'rgba(239,68,68,0.1)' },
+                      '&:hover':  { color: theme.palette.error.main, background: alpha(theme.palette.error.main, 0.12) },
                     }}
                   >
                     <LogoutIcon sx={{ fontSize: 16 }} />
@@ -307,7 +310,7 @@ function Layout({ children }) {
         height:     '100vh',
         overflow:   'hidden',
         position:   'relative',
-        background: 'linear-gradient(135deg, #070B18 0%, #111827 50%, #1E1B4B 100%)',
+        background: 'var(--theme-app-gradient)',
       }}
     >
 
@@ -316,7 +319,7 @@ function Layout({ children }) {
         position: 'fixed', top: '-15%', left: '-10%',
         width: 700, height: 700, borderRadius: '50%',
         pointerEvents: 'none', zIndex: 0,
-        background: 'radial-gradient(circle, rgba(99,102,241,0.18) 0%, transparent 65%)',
+        background: `radial-gradient(circle, ${alpha(custom.brand.main, 0.16)} 0%, transparent 65%)`,
         filter: 'blur(60px)',
       }} />
 
@@ -325,7 +328,7 @@ function Layout({ children }) {
         position: 'fixed', bottom: '-20%', right: '-12%',
         width: 900, height: 900, borderRadius: '50%',
         pointerEvents: 'none', zIndex: 0,
-        background: 'radial-gradient(circle, rgba(139,92,246,0.14) 0%, transparent 65%)',
+        background: `radial-gradient(circle, ${alpha(custom.brand.accent, 0.14)} 0%, transparent 65%)`,
         filter: 'blur(80px)',
       }} />
 
@@ -334,7 +337,7 @@ function Layout({ children }) {
         position: 'fixed', top: '45%', left: '38%',
         width: 500, height: 500, borderRadius: '50%',
         pointerEvents: 'none', zIndex: 0,
-        background: 'radial-gradient(circle, rgba(6,182,212,0.07) 0%, transparent 65%)',
+        background: `radial-gradient(circle, ${alpha(custom.brand.main, 0.08)} 0%, transparent 65%)`,
         filter: 'blur(70px)',
       }} />
 
@@ -344,11 +347,11 @@ function Layout({ children }) {
         position="fixed"
         sx={{
           zIndex:               (t) => t.zIndex.drawer + 1,
-          background:           'rgba(7,11,24,0.65)',
+          background:           custom.appBar,
           backdropFilter:       'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          borderBottom:         '1px solid rgba(255,255,255,0.08)',
-          boxShadow:            '0 4px 24px rgba(0,0,0,0.5), inset 0 -1px 0 rgba(99,102,241,0.2)',
+          borderBottom:         `1px solid ${alpha(custom.border, 0.82)}`,
+          boxShadow:            `0 4px 24px ${alpha('#000000', 0.32)}, inset 0 -1px 0 ${alpha(custom.brand.main, 0.2)}`,
         }}
       >
         <Toolbar>
@@ -359,6 +362,7 @@ function Layout({ children }) {
             edge="start"
             sx={{
               mr:         2,
+              color:      custom.text.primary,
               transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
               transform:  open ? 'rotate(0deg)' : 'rotate(180deg)',
             }}
@@ -366,18 +370,29 @@ function Layout({ children }) {
             {open ? <ChevronLeftIcon /> : <MenuIcon />}
           </IconButton>
 
-          <Typography variant="h6" sx={{ flexGrow: 1, fontWeight: 800, letterSpacing: 1, fontSize: '1.3rem' }}>
-            💳 Ctrl-Pay
+          <Typography
+            variant="h6"
+            sx={{
+              flexGrow: 1,
+              fontWeight: 800,
+              letterSpacing: 1,
+              fontSize: '1.3rem',
+              color: custom.text.primary,
+            }}
+          >
+            Ctrl-Pay
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
 
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
+            <ThemeToggle />
+
+            <Typography variant="body2" sx={{ color: alpha(custom.text.primary, 0.78) }}>
               {customerId ? `Customer: ${customerId}` : 'No customer selected'}
             </Typography>
 
             {customer && (
-              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.55)' }}>
+              <Typography variant="body2" sx={{ color: alpha(custom.text.primary, 0.62) }}>
                 {customer.name}
               </Typography>
             )}
@@ -412,13 +427,13 @@ function Layout({ children }) {
             overflowX:            'hidden',
             overflowY:            'hidden',
 
-            background:           'rgba(11,17,32,0.88)',
+            background:           custom.drawer,
             backdropFilter:       'blur(24px)',
             WebkitBackdropFilter: 'blur(24px)',
 
-            borderRight:  open ? '1px solid rgba(255,255,255,0.07)' : 'none',
+            borderRight:  open ? `1px solid ${alpha(custom.border, 0.85)}` : 'none',
             borderRadius: '0 16px 16px 0',
-            boxShadow:    '4px 0 32px rgba(0,0,0,0.4), inset -1px 0 0 rgba(99,102,241,0.1)',
+            boxShadow:    `4px 0 32px ${alpha('#000000', 0.24)}, inset -1px 0 0 ${alpha(custom.brand.main, 0.14)}`,
 
             transition:   'width 0.3s cubic-bezier(0.4,0,0.2,1)',
           },
@@ -438,7 +453,7 @@ function Layout({ children }) {
           overflowY:       'auto',
           background:      'transparent',
           transition:      'all 0.3s cubic-bezier(0.4,0,0.2,1)',
-          backgroundImage: 'radial-gradient(rgba(99,102,241,0.12) 1px, transparent 1px)',
+          backgroundImage: `radial-gradient(${alpha(custom.brand.main, 0.12)} 1px, transparent 1px)`,
           backgroundSize:  '40px 40px',
         }}
       >

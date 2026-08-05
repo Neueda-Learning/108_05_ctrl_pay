@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 import {
   Box,
   Card,
@@ -10,7 +11,11 @@ import {
   CircularProgress,
   MenuItem,
   InputAdornment,
+<<<<<<< Updated upstream
   Chip,
+=======
+  useTheme,
+>>>>>>> Stashed changes
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { Add, Search } from '@mui/icons-material';
@@ -18,31 +23,19 @@ import { paymentAPI } from '../services/api';
 import { format } from 'date-fns';
 import StatusBadge from '../components/StatusBadge';
 
-const GRID_SX = {
-  border: 'none',
-  background: 'transparent',
-  '& .MuiDataGrid-columnHeaders': {
-    background:    '#1E293B',
-    borderBottom:  '1px solid rgba(255,255,255,0.08)',
-    borderRadius:  0,
-    minHeight:     '48px !important',
-  },
-  '& .MuiDataGrid-columnHeaderTitle': {
-    color:         '#94A3B8',
-    fontWeight:    700,
-    fontSize:      '0.68rem',
-    letterSpacing: 0.9,
-    textTransform: 'uppercase',
-  },
-  '& .MuiDataGrid-columnSeparator': { color: 'rgba(255,255,255,0.08)' },
-  '& .MuiDataGrid-row': {
-    background:  '#0F172A',
-    transition:  'background 0.2s ease',
-    '&:hover':   { background: 'rgba(99,102,241,0.08)' },
-    '&.Mui-selected': {
-      background: 'rgba(99,102,241,0.12)',
-      '&:hover':  { background: 'rgba(99,102,241,0.16)' },
+const getGridSx = (theme) => {
+  const custom = theme.customTokens;
+
+  return {
+    border: 'none',
+    background: 'transparent',
+    '& .MuiDataGrid-columnHeaders': {
+      background: custom.gridHeader,
+      borderBottom: `1px solid ${alpha(custom.border, 0.75)}`,
+      borderRadius: 0,
+      minHeight: '48px !important',
     },
+<<<<<<< Updated upstream
   },
   '& .MuiDataGrid-cell': {
     color:        '#CBD5E1',
@@ -72,9 +65,54 @@ const GRID_SX = {
     backgroundColor: 'rgba(239,68,68,0.08)',
     '&:hover': { backgroundColor: 'rgba(239,68,68,0.14)' },
   },
+=======
+    '& .MuiDataGrid-columnHeaderTitle': {
+      color: custom.text.secondary,
+      fontWeight: 700,
+      fontSize: '0.68rem',
+      letterSpacing: 0.9,
+      textTransform: 'uppercase',
+    },
+    '& .MuiDataGrid-columnSeparator': { color: alpha(custom.border, 0.75) },
+    '& .MuiDataGrid-row': {
+      background: custom.gridRow,
+      transition: custom.transition,
+      '&:hover': { background: alpha(custom.brand.main, 0.08) },
+      '&.Mui-selected': {
+        background: alpha(custom.brand.main, 0.12),
+        '&:hover': { background: alpha(custom.brand.main, 0.16) },
+      },
+    },
+    '& .MuiDataGrid-cell': {
+      color: custom.text.secondary,
+      fontSize: '0.875rem',
+      borderBottom: `1px solid ${alpha(custom.border, 0.45)}`,
+      display: 'flex',
+      alignItems: 'center',
+    },
+    '& .MuiDataGrid-footerContainer': {
+      background: custom.gridHeader,
+      borderTop: `1px solid ${alpha(custom.border, 0.75)}`,
+    },
+    '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
+      color: custom.text.secondary,
+      fontSize: '0.8rem',
+    },
+    '& .MuiTablePagination-select': { color: custom.text.primary },
+    '& .MuiDataGrid-iconButtonContainer .MuiIconButton-root, & .MuiTablePagination-actions .MuiIconButton-root': {
+      color: custom.text.muted,
+      '&:hover': { background: alpha(custom.brand.main, 0.1), color: custom.brand.accent },
+      '&.Mui-disabled': { color: alpha(custom.text.muted, 0.5) },
+    },
+    '& .MuiDataGrid-overlay': { background: custom.gridOverlay, color: custom.text.secondary },
+    '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
+    '& .MuiDataGrid-withBorderColor': { borderColor: alpha(custom.border, 0.6) },
+  };
+>>>>>>> Stashed changes
 };
 
 function PaymentsList() {
+  const theme = useTheme();
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [paginationModel, setPaginationModel] = useState({ pageSize: 10, page: 0 });
@@ -302,8 +340,12 @@ function PaymentsList() {
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
             pageSizeOptions={[10, 25, 50]}
+<<<<<<< Updated upstream
             getRowClassName={(params) => (params.row.highRisk ? 'high-risk-row' : '')}
             sx={{ height: 600, ...GRID_SX }}
+=======
+              sx={{ height: 600, ...getGridSx(theme) }}
+>>>>>>> Stashed changes
           />
         )}
       </Card>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box } from '@mui/material';
+import { Box, useTheme } from '@mui/material';
 
 /* ─── per-status config ─────────────────────────────────────── */
 const CONFIG = {
@@ -14,11 +14,20 @@ const CONFIG = {
   SUSPICIOUS: { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.40)',   color: '#FCA5A5', dot: '#EF4444', glow: 'rgba(239,68,68,0.25)'  },
 };
 
-const DEFAULT = { bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.25)', color: '#94A3B8', dot: '#64748B', glow: null };
-
 /* ─── component ─────────────────────────────────────────────── */
 export default function StatusBadge({ status, label }) {
-  const cfg  = CONFIG[status?.toUpperCase()] || DEFAULT;
+  const theme = useTheme();
+  const custom = theme.customTokens;
+
+  const fallback = {
+    bg: 'transparent',
+    border: custom.border,
+    color: custom.text.secondary,
+    dot: custom.text.muted,
+    glow: null,
+  };
+
+  const cfg  = CONFIG[status?.toUpperCase()] || fallback;
   const text = label || status || '—';
 
   return (
@@ -41,6 +50,7 @@ export default function StatusBadge({ status, label }) {
         boxShadow:     cfg.glow ? `0 0 12px ${cfg.glow}` : 'none',
         whiteSpace:    'nowrap',
         userSelect:    'none',
+        transition:    custom.transition,
       }}
     >
       <Box
