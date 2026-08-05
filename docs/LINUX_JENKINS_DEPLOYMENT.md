@@ -25,20 +25,22 @@ No `.env` file is required. Runtime values are defined directly in `docker-compo
 
 ## Public access rule
 
-Deployment rule: only port `8080` is externally accessible.
+Current compose mapping exposes frontend on host port `8081`.
 
-Port `8080` is reserved for Jenkins on this VM.
-The application frontend nginx binds to port `3000`.
+Internal service ports:
+
+- backend: `8082` (internal Docker network)
+- ml: `8083` (internal Docker network)
 
 Access via VM IP:
 
 ```powershell
-$env:VM_IP="10.9.71.48"
+$env:VM_IP="10.9.72.215"
 ```
 
-- Frontend: `http://${VM_IP}:3000`
-- Swagger UI: `http://${VM_IP}:3000/swagger-ui/index.html`
-- OpenAPI JSON: `http://${VM_IP}:3000/v3/api-docs`
+- Frontend: `http://${VM_IP}:8081`
+- Swagger UI: `http://${VM_IP}:8081/swagger-ui/index.html`
+- OpenAPI JSON: `http://${VM_IP}:8081/v3/api-docs`
 - Jenkins: `http://${VM_IP}:8080`
 
 ## Jenkins pipeline stages (same method as kk-04 reference)

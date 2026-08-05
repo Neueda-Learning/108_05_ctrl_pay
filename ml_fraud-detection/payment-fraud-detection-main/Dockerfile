@@ -9,10 +9,10 @@ COPY . .
 
 ENV PYTHONUNBUFFERED=1
 
-EXPOSE 5000
+EXPOSE 8083
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:5000/').read()" || exit 1
+  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8083/').read()" || exit 1
 
-CMD ["flask", "--app", "app", "run", "--host=0.0.0.0", "--port=5000"]
+CMD ["flask", "--app", "app", "run", "--host=0.0.0.0", "--port=8083"]
 

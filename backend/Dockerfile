@@ -50,7 +50,7 @@ COPY --from=builder --chown=appuser:appgroup /build/target/ctrl_pay-*.jar /app/a
 USER appuser
 
 # Expose application port
-EXPOSE 8080
+EXPOSE 8082
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \

@@ -29,8 +29,9 @@ services:
     restart: unless-stopped
     environment:
       PYTHONUNBUFFERED: "1"
+    command: ["flask", "--app", "app", "run", "--host=0.0.0.0", "--port=8083"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/').read()"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8083/').read()"]
       interval: 30s
       timeout: 5s
       retries: 5
@@ -46,10 +47,11 @@ services:
     restart: unless-stopped
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      SERVER_PORT: 8082
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ctrl_pay?serverTimezone=UTC&useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: admin123
-      FRAUD_API_BASE_URL: http://ml:5000
+      FRAUD_API_BASE_URL: http://ml:8083
       JAVA_OPTS: -Xmx768m -Xms256m
       TZ: UTC
     depends_on:
@@ -58,7 +60,7 @@ services:
       ml:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health/liveness"]
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health/liveness"]
       interval: 30s
       timeout: 5s
       retries: 5

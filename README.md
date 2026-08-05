@@ -16,16 +16,16 @@ Traffic flow:
 1. Browser calls `http://<host>:<NGINX_PORT>`
 2. `frontend` serves static frontend files
 3. `frontend` proxies:
-   - `/api/*` and `/actuator/*` -> `backend:8080`
-   - `/ml/*` -> `ml:5000`
+   - `/api/*` and `/actuator/*` -> `backend:8082`
+   - `/ml/*` -> `ml:8083`
 4. `backend` talks to `mysql:3306`
-5. `backend` calls ML service via `FRAUD_API_BASE_URL` (default `http://ml:5000`)
+5. `backend` calls ML service via `FRAUD_API_BASE_URL` (default `http://ml:8083`)
 
 ## Service List
 
-- `frontend` (public): host port `${NGINX_PORT:-80}` -> container `80`
-- `backend` (internal): `8080`
-- `ml` (internal): `5000`
+- `frontend` (public): host port `8081` -> container `80`
+- `backend` (internal): `8082`
+- `ml` (internal): `8083`
 - `mysql` (internal): `3306`
 
 Only `frontend` is exposed publicly by default.
@@ -75,17 +75,17 @@ docker compose down -v
 After deployment, access services through the VM IP. Example:
 
 ```powershell
-$env:VM_IP="10.9.71.48"
+$env:VM_IP="10.9.72.215"
 ```
 
 Access via VM IP:
 
-- Frontend: `http://${VM_IP}:3000`
-- Swagger UI: `http://${VM_IP}:3000/swagger-ui/index.html`
-- OpenAPI JSON: `http://${VM_IP}:3000/v3/api-docs`
+- Frontend: `http://${VM_IP}:8081`
+- Swagger UI: `http://${VM_IP}:8081/swagger-ui/index.html`
+- OpenAPI JSON: `http://${VM_IP}:8081/v3/api-docs`
 - Jenkins: `http://${VM_IP}:8080`
 
-Note: Port `8080` is reserved for Jenkins on the VM. The app frontend runs on port `3000`.
+Note: Jenkins uses `8080`. The app frontend is exposed on `8081`.
 
 ## Development Workflow
 
@@ -109,7 +109,7 @@ npm start
 ```bash
 cd ml_fraud-detection/payment-fraud-detection-main
 pip install -r requirements.txt
-flask --app app run --host=0.0.0.0 --port=5000
+flask --app app run --host=0.0.0.0 --port=8083
 ```
 
 ## CI Pipeline (GitHub Actions)
