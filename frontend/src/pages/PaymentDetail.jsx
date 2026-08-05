@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Box,
   Card,
   CardContent,
@@ -15,6 +16,13 @@ import {
 import { CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { paymentAPI } from '../services/api';
 import { format } from 'date-fns';
+import { toast } from 'react-toastify';
+import { useCustomer } from '../context/CustomerContext';
+import {
+  extractReceiptDownloadError,
+  isSuccessfulPaymentStatus,
+  saveReceiptPdf,
+} from '../utils/receiptDownload';
 
 const statusColors = {
   CREATED: 'default',
@@ -27,9 +35,12 @@ const statusColors = {
 function PaymentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { customerId } = useCustomer();
   const [payment, setPayment] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
 
   useEffect(() => {
     fetchPaymentDetails();
@@ -57,6 +68,27 @@ function PaymentDetail() {
     ? Number(payment.fraudProbability).toFixed(2)
     : null;
   const isHighRisk = fraudProbability !== null && Number(fraudProbability) >= 80;
+  const handleDownloadReceipt = async () => {
+    if (!customerId) {
+      setReceiptError('Load a customer profile before downloading a receipt.');
+      return;
+    }
+
+    try {
+      setDownloadingReceipt(true);
+      setReceiptError('');
+
+      const response = await paymentAPI.downloadReceipt(customerId, id);
+      saveReceiptPdf(response, payment?.id || id);
+      toast.success('Receipt downloaded successfully');
+    } catch (error) {
+      const message = await extractReceiptDownloadError(error, 'Unable to download receipt');
+      setReceiptError(message);
+      toast.error(message);
+    } finally {
+      setDownloadingReceipt(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -230,6 +262,16 @@ function PaymentDetail() {
                 Quick Actions
               </Typography>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                {isSuccessfulPaymentStatus(payment.status) && (
+                  <Button
+                    variant="contained"
+                    fullWidth
+                    onClick={handleDownloadReceipt}
+                    disabled={downloadingReceipt}
+                  >
+                    {downloadingReceipt ? <CircularProgress size={20} color="inherit" /> : 'Download Receipt'}
+                  </Button>
+                )}
                 {payment.status === 'CREATED' && (
                   <Button variant="contained" fullWidth>
                     Validate
@@ -254,6 +296,12 @@ function PaymentDetail() {
                   Mark Failed
                 </Button>
               </Box>
+
+              {receiptError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {receiptError}
+                </Alert>
+              )}
             </CardContent>
           </Card>
 

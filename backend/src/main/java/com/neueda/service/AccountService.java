@@ -2,6 +2,7 @@ package com.neueda.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -87,6 +88,23 @@ public class AccountService {
             refreshSuspiciousStatusSafely(account.accountNumber());
         }
         return accountRepository.findByCustomerId(customerId);
+    }
+
+    /**
+     * Check whether the given customer owns at least one of the supplied account numbers.
+     */
+    public boolean customerOwnsAnyAccount(Long customerId, String... accountNumbers) {
+        Set<String> customerAccountNumbers = getAccountsByCustomerId(customerId).stream()
+            .map(AccountRecord::accountNumber)
+            .collect(java.util.stream.Collectors.toSet());
+
+        for (String accountNumber : accountNumbers) {
+            if (accountNumber != null && customerAccountNumbers.contains(accountNumber)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

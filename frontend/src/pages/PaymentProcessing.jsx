@@ -14,6 +14,12 @@ import { Refresh, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { paymentAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import PaymentStatusFlow from '../components/PaymentStatusFlow';
+import { useCustomer } from '../context/CustomerContext';
+import {
+  extractReceiptDownloadError,
+  isSuccessfulPaymentStatus,
+  saveReceiptPdf,
+} from '../utils/receiptDownload';
 
 /**
  * PaymentProcessing Component
@@ -27,6 +33,7 @@ import PaymentStatusFlow from '../components/PaymentStatusFlow';
 function PaymentProcessing() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { customerId } = useCustomer();
 
   // State management
   const [payment, setPayment] = useState(null);
@@ -36,6 +43,8 @@ function PaymentProcessing() {
   const [retryCount, setRetryCount] = useState(0);
   const [autoProcessing, setAutoProcessing] = useState(true);
   const [pollingInterval, setPollingInterval] = useState(null);
+  const [downloadingReceipt, setDownloadingReceipt] = useState(false);
+  const [receiptError, setReceiptError] = useState('');
 
   // Configuration
   const MAX_RETRIES = 3;
@@ -148,6 +157,28 @@ function PaymentProcessing() {
           processPaymentWorkflow({ ...payment, status: 'SENT', errorCode: null, errorMessage: null });
         }
       }
+    }
+  };
+
+  const handleDownloadReceipt = async () => {
+    if (!customerId) {
+      setReceiptError('Load a customer profile before downloading a receipt.');
+      return;
+    }
+
+    try {
+      setDownloadingReceipt(true);
+      setReceiptError('');
+
+      const response = await paymentAPI.downloadReceipt(customerId, id);
+      saveReceiptPdf(response, payment?.id || id);
+      toast.success('Receipt downloaded successfully');
+    } catch (error) {
+      const message = await extractReceiptDownloadError(error, 'Unable to download receipt');
+      setReceiptError(message);
+      toast.error(message);
+    } finally {
+      setDownloadingReceipt(false);
     }
   };
 
@@ -309,7 +340,7 @@ function PaymentProcessing() {
                   mb: 2,
                 }}
               >
-                {payment.status === 'COMPLETED' && (
+                {isSuccessfulPaymentStatus(payment.status) && (
                   <Box sx={{ textAlign: 'center', color: 'success.main' }}>
                     <CheckCircle sx={{ fontSize: 48, mb: 1 }} />
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -325,7 +356,7 @@ function PaymentProcessing() {
                     </Typography>
                   </Box>
                 )}
-                {!(payment.status === 'COMPLETED' || payment.status === 'FAILED') && (
+                {!(isSuccessfulPaymentStatus(payment.status) || payment.status === 'FAILED') && (
                   <Box sx={{ textAlign: 'center', color: 'info.main' }}>
                     <CircularProgress size={48} sx={{ mb: 1 }} />
                     <Typography variant="h6" sx={{ fontWeight: 700 }}>
@@ -357,14 +388,16 @@ function PaymentProcessing() {
                     </Button>
                   </>
                 )}
-                {payment.status === 'COMPLETED' && (
+                {isSuccessfulPaymentStatus(payment.status) && (
                   <>
                     <Button
                       variant="contained"
                       color="success"
+                      onClick={handleDownloadReceipt}
+                      disabled={downloadingReceipt}
                       fullWidth
                     >
-                      ✓ Download Receipt
+                      {downloadingReceipt ? <CircularProgress size={20} color="inherit" /> : 'Download Receipt'}
                     </Button>
                     <Button
                       variant="outlined"
@@ -376,6 +409,12 @@ function PaymentProcessing() {
                   </>
                 )}
               </Box>
+
+              {receiptError && (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {receiptError}
+                </Alert>
+              )}
             </CardContent>
           </Card>
 
