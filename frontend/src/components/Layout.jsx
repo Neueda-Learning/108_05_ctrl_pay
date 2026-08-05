@@ -432,7 +432,24 @@ function Layout({ children }) {
             marginTop:            '64px',
             height:               'calc(100vh - 64px)',
             overflowX:            'hidden',
-            overflowY:            'hidden',
+            overflowY:            'auto',
+            scrollbarWidth:       'thin',
+            scrollbarColor:       `${alpha(custom.brand.main, 0.65)} ${alpha(custom.background.secondary, 0.55)}`,
+
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: alpha(custom.background.secondary, 0.55),
+              borderRadius: '10px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: alpha(custom.brand.main, 0.65),
+              borderRadius: '10px',
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              background: alpha(custom.brand.accent, 0.8),
+            },
 
             background:           custom.drawer,
             backdropFilter:       'blur(24px)',
