@@ -11,6 +11,7 @@ const CONFIG = {
   PENDING:    { bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.40)',  color: '#FCD34D', dot: '#F59E0B', glow: 'rgba(245,158,11,0.30)' },
   ACTIVE:     { bg: 'rgba(16,185,129,0.12)',  border: 'rgba(16,185,129,0.40)',  color: '#34D399', dot: '#10B981', glow: 'rgba(16,185,129,0.35)' },
   INACTIVE:   { bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.30)', color: '#94A3B8', dot: '#64748B', glow: null                   },
+  SUSPICIOUS: { bg: 'rgba(239,68,68,0.12)',   border: 'rgba(239,68,68,0.40)',   color: '#FCA5A5', dot: '#EF4444', glow: 'rgba(239,68,68,0.25)'  },
 };
 
 const DEFAULT = { bg: 'rgba(100,116,139,0.10)', border: 'rgba(100,116,139,0.25)', color: '#94A3B8', dot: '#64748B', glow: null };

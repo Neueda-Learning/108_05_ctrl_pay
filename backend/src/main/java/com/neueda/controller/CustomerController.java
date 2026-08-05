@@ -24,6 +24,7 @@ import com.neueda.dto.PaymentResponse;
 import com.neueda.exception.CustomerNotFoundException;
 import com.neueda.service.AccountService;
 import com.neueda.service.CustomerService;
+import com.neueda.service.FraudRiskService;
 import com.neueda.service.PaymentService;
 
 import jakarta.validation.Valid;
@@ -38,11 +39,18 @@ public class CustomerController {
     private final CustomerService customerService;
     private final PaymentService paymentService;
     private final AccountService accountService;
+    private final FraudRiskService fraudRiskService;
 
-    public CustomerController(CustomerService customerService, PaymentService paymentService, AccountService accountService) {
+    public CustomerController(
+        CustomerService customerService,
+        PaymentService paymentService,
+        AccountService accountService,
+        FraudRiskService fraudRiskService
+    ) {
         this.customerService = customerService;
         this.paymentService = paymentService;
         this.accountService = accountService;
+        this.fraudRiskService = fraudRiskService;
     }
 
     /**
@@ -279,6 +287,8 @@ public class CustomerController {
     }
 
     private PaymentResponse toPaymentResponse(PaymentRecord payment) {
+        FraudRiskService.PaymentRisk paymentRisk = fraudRiskService.assessPaymentRisk(payment);
+
         // Fetch validation results from service
         var validationResults = paymentService.getValidationResults(payment.id()).stream()
             .map(vr -> new com.neueda.dto.ValidationResultResponse(
@@ -306,6 +316,8 @@ public class CustomerController {
             payment.exchangeRate(),
             payment.createdAt(),
             payment.updatedAt(),
+            paymentRisk.fraudProbability(),
+            paymentRisk.highRisk(),
             validationResults
         );
     }

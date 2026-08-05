@@ -16,6 +16,7 @@ import com.neueda.dto.PaymentResponse;
 import com.neueda.dto.StatusTransitionRequest;
 import com.neueda.exception.PaymentNotFoundException;
 import com.neueda.exception.PaymentProcessingException;
+import com.neueda.service.FraudRiskService;
 import com.neueda.service.PaymentService;
 
 import jakarta.validation.Valid;
@@ -34,10 +35,12 @@ import jakarta.validation.Valid;
 public class PaymentLifecycleController {
     
     private final PaymentService paymentService;
+    private final FraudRiskService fraudRiskService;
     private static final Random random = new Random();
     
-    public PaymentLifecycleController(PaymentService paymentService) {
+    public PaymentLifecycleController(PaymentService paymentService, FraudRiskService fraudRiskService) {
         this.paymentService = paymentService;
+        this.fraudRiskService = fraudRiskService;
     }
     
     /**
@@ -274,6 +277,8 @@ public class PaymentLifecycleController {
      * Convert PaymentRecord to PaymentResponse.
      */
     private PaymentResponse toPaymentResponse(PaymentRecord payment) {
+        FraudRiskService.PaymentRisk paymentRisk = fraudRiskService.assessPaymentRisk(payment);
+
         var validationResults = paymentService.getValidationResults(payment.id()).stream()
             .map(vr -> new com.neueda.dto.ValidationResultResponse(
                 vr.validationRuleId(),
@@ -300,6 +305,8 @@ public class PaymentLifecycleController {
             payment.exchangeRate(),
             payment.createdAt(),
             payment.updatedAt(),
+            paymentRisk.fraudProbability(),
+            paymentRisk.highRisk(),
             validationResults
         );
     }

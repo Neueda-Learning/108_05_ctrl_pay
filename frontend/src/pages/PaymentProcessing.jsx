@@ -198,6 +198,10 @@ function PaymentProcessing() {
     }
   }, [payment, autoProcessing, processPaymentWorkflow]);
 
+  const fraudProbability = payment?.fraudProbability != null && !Number.isNaN(Number(payment.fraudProbability))
+    ? Number(payment.fraudProbability).toFixed(2)
+    : null;
+
   /**
    * Polling effect: Check payment status periodically
    */
@@ -414,7 +418,53 @@ function PaymentProcessing() {
             </CardContent>
           </Card>
 
-          {/* Info Card section removed - was displaying Processing Info, Retry Attempts, Processing Status, and Error Details */}
+          {/* Info Card */}
+          <Card>
+            <CardContent>
+              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
+                Processing Info
+              </Typography>
+              <Box sx={{ space: 1 }}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="textSecondary">
+                    Retry Attempts
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {retryCount} / {MAX_RETRIES}
+                  </Typography>
+                </Box>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="caption" color="textSecondary">
+                    Processing Status
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    {autoProcessing ? 'Active' : 'Completed'}
+                  </Typography>
+                </Box>
+                {payment.status === 'COMPLETED' && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="caption" color="textSecondary">
+                      Fraud Probability
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                      {fraudProbability !== null ? `${fraudProbability}%` : 'N/A'}
+                    </Typography>
+                  </Box>
+                )}
+                {errorDetails && (
+                  <Box>
+                    <Typography variant="caption" color="textSecondary">
+                      Error Details
+                    </Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>
+                      {errorDetails.code && `[${errorDetails.code}] `}
+                      {errorDetails.message}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </CardContent>
+          </Card>
         </Grid>
       </Grid>
     </Box>

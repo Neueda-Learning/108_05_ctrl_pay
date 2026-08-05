@@ -87,6 +87,12 @@ public interface PaymentRepository {
         int limit,
         int offset
     );
+
+    /**
+     * Retrieve COMPLETED payments for an account since a given timestamp.
+     * Used by risk analytics (separate from payment processing workflow).
+     */
+    List<PaymentRecord> findCompletedByAccountSince(String accountNumber, LocalDateTime since);
     
     /**
      * Count total number of payments.

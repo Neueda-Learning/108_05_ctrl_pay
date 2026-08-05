@@ -24,13 +24,16 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final CustomerRepository customerRepository;
+    private final FraudRiskService fraudRiskService;
 
     public AccountService(
         AccountRepository accountRepository,
-        CustomerRepository customerRepository
+        CustomerRepository customerRepository,
+        FraudRiskService fraudRiskService
     ) {
         this.accountRepository = accountRepository;
         this.customerRepository = customerRepository;
+        this.fraudRiskService = fraudRiskService;
     }
 
     /**
@@ -65,16 +68,24 @@ public class AccountService {
     }
 
     public Optional<AccountRecord> getAccountById(Long accountId) {
+        Optional<AccountRecord> account = accountRepository.findById(accountId);
+        account.ifPresent(value -> refreshSuspiciousStatusSafely(value.accountNumber()));
         return accountRepository.findById(accountId);
     }
 
     public Optional<AccountRecord> getAccountByAccountNumber(String accountNumber) {
+        Optional<AccountRecord> account = accountRepository.findByAccountNumber(accountNumber);
+        account.ifPresent(value -> refreshSuspiciousStatusSafely(value.accountNumber()));
         return accountRepository.findByAccountNumber(accountNumber);
     }
 
     public List<AccountRecord> getAccountsByCustomerId(Long customerId) {
         if (customerRepository.findById(customerId).isEmpty()) {
             throw new CustomerNotFoundException("Customer not found: " + customerId);
+        }
+        List<AccountRecord> accounts = accountRepository.findByCustomerId(customerId);
+        for (AccountRecord account : accounts) {
+            refreshSuspiciousStatusSafely(account.accountNumber());
         }
         return accountRepository.findByCustomerId(customerId);
     }
@@ -123,6 +134,14 @@ public class AccountService {
         }
         
         return true;
+    }
+
+    private void refreshSuspiciousStatusSafely(String accountNumber) {
+        try {
+            fraudRiskService.refreshAccountRiskStatus(accountNumber);
+        } catch (Exception ignored) {
+            // Risk refresh is best-effort and must never affect core account reads.
+        }
     }
 }
 

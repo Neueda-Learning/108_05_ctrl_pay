@@ -56,6 +56,7 @@ function PaymentDetail() {
 
       setPayment(paymentRes.data);
       setHistory(Array.isArray(historyRes.data) ? historyRes.data : []);
+
     } catch (error) {
       console.error('Error fetching payment details:', error);
     } finally {
@@ -63,6 +64,10 @@ function PaymentDetail() {
     }
   };
 
+  const fraudProbability = payment?.fraudProbability != null && !Number.isNaN(Number(payment.fraudProbability))
+    ? Number(payment.fraudProbability).toFixed(2)
+    : null;
+  const isHighRisk = fraudProbability !== null && Number(fraudProbability) >= 80;
   const handleDownloadReceipt = async () => {
     if (!customerId) {
       setReceiptError('Load a customer profile before downloading a receipt.');
@@ -177,11 +182,16 @@ function PaymentDetail() {
           </Card>
 
           {/* Status Timeline */}
-          <Card>
+          <Card sx={isHighRisk ? { border: '1px solid rgba(239,68,68,0.35)', backgroundColor: 'rgba(239,68,68,0.04)' } : undefined}>
             <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                Status History
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Status History
+                </Typography>
+                {isHighRisk && (
+                  <Chip label="High Risk Transaction" size="small" color="error" variant="outlined" />
+                )}
+              </Box>
               {history && history.length > 0 ? (
                 <Stack spacing={2}>
                   {history.map((item, idx) => (
@@ -191,7 +201,11 @@ function PaymentDetail() {
                         display: 'flex',
                         gap: 2,
                         pb: idx < history.length - 1 ? 2 : 0,
-                        borderBottom: idx < history.length - 1 ? '1px solid rgba(99,102,241,0.15)' : 'none',
+                        borderBottom: idx < history.length - 1
+                          ? isHighRisk
+                            ? '1px solid rgba(239,68,68,0.25)'
+                            : '1px solid rgba(99,102,241,0.15)'
+                          : 'none',
                       }}
                     >
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -309,6 +323,14 @@ function PaymentDetail() {
                     {format(new Date(payment.updatedAt), 'MMM dd, yyyy')}
                   </Typography>
                 </Box>
+                {payment.status === 'COMPLETED' && (
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                    <Typography variant="body2">Fraud Probability:</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      {fraudProbability !== null ? `${fraudProbability}%` : 'N/A'}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </CardContent>
           </Card>

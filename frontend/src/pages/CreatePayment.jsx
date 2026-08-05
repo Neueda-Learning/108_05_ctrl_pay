@@ -234,7 +234,7 @@ function CreatePayment() {
           currency: sourceCurrency,
           sourceCurrency: sourceCurrency,
           destinationCurrency: destinationCurrency,
-          sourceAmount: convertedAmount ? convertedAmount : parseFloat(data.amount),
+          sourceAmount: parseFloat(data.amount),
           destinationAmount: convertedAmount,
           exchangeRate: exchangeRate,
           idempotencyKey: `payment-${Date.now()}`,
