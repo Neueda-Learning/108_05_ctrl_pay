@@ -204,15 +204,11 @@ function PaymentDetail() {
                         display: 'flex',
                         gap: 2,
                         pb: idx < history.length - 1 ? 2 : 0,
-<<<<<<< Updated upstream
                         borderBottom: idx < history.length - 1
                           ? isHighRisk
                             ? '1px solid rgba(239,68,68,0.25)'
-                            : '1px solid rgba(99,102,241,0.15)'
+                            : `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
                           : 'none',
-=======
-                        borderBottom: idx < history.length - 1 ? `1px solid ${alpha(theme.palette.primary.main, 0.2)}` : 'none',
->>>>>>> Stashed changes
                       }}
                     >
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

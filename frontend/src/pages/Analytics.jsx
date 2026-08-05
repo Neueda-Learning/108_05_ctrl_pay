@@ -76,16 +76,14 @@ const getGridSx = (theme) => {
 };
 
 function Analytics() {
-<<<<<<< Updated upstream
-  const { currentCustomer, customerAccounts, loading, error, selectCustomer, clearErrorForField } = useCustomer();
+
+  const { currentCustomer, customerAccounts, loading, error, selectCustomer } = useCustomer();
 
   const [customerIdInput, setCustomerIdInput] = useState(currentCustomer?.customerId || '');
-=======
+
   const theme = useTheme();
   const custom = theme.customTokens;
-  const { customerId, customer, accounts, loadCustomer, loadingCustomer } = useCustomer();
-  const [customerIdInput, setCustomerIdInput] = useState(customerId || '');
->>>>>>> Stashed changes
+
   const [filters, setFilters] = useState({
     status: '',
     account: '',

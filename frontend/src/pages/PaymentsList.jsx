@@ -11,11 +11,8 @@ import {
   CircularProgress,
   MenuItem,
   InputAdornment,
-<<<<<<< Updated upstream
   Chip,
-=======
   useTheme,
->>>>>>> Stashed changes
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { Add, Search } from '@mui/icons-material';
@@ -35,37 +32,6 @@ const getGridSx = (theme) => {
       borderRadius: 0,
       minHeight: '48px !important',
     },
-<<<<<<< Updated upstream
-  },
-  '& .MuiDataGrid-cell': {
-    color:        '#CBD5E1',
-    fontSize:     '0.875rem',
-    borderBottom: '1px solid rgba(255,255,255,0.04)',
-    display:      'flex',
-    alignItems:   'center',
-  },
-  '& .MuiDataGrid-footerContainer': {
-    background:  '#1E293B',
-    borderTop:   '1px solid rgba(255,255,255,0.08)',
-  },
-  '& .MuiTablePagination-root, & .MuiTablePagination-selectLabel, & .MuiTablePagination-displayedRows': {
-    color:    '#94A3B8',
-    fontSize: '0.8rem',
-  },
-  '& .MuiTablePagination-select': { color: '#CBD5E1' },
-  '& .MuiDataGrid-iconButtonContainer .MuiIconButton-root, & .MuiTablePagination-actions .MuiIconButton-root': {
-    color:     '#64748B',
-    '&:hover': { background: 'rgba(99,102,241,0.1)', color: '#818CF8' },
-    '&.Mui-disabled': { color: '#1E293B' },
-  },
-  '& .MuiDataGrid-overlay': { background: 'rgba(11,17,32,0.85)', color: '#94A3B8' },
-  '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
-  '& .MuiDataGrid-withBorderColor': { borderColor: 'rgba(255,255,255,0.05)' },
-  '& .high-risk-row': {
-    backgroundColor: 'rgba(239,68,68,0.08)',
-    '&:hover': { backgroundColor: 'rgba(239,68,68,0.14)' },
-  },
-=======
     '& .MuiDataGrid-columnHeaderTitle': {
       color: custom.text.secondary,
       fontWeight: 700,
@@ -107,8 +73,11 @@ const getGridSx = (theme) => {
     '& .MuiDataGrid-overlay': { background: custom.gridOverlay, color: custom.text.secondary },
     '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
     '& .MuiDataGrid-withBorderColor': { borderColor: alpha(custom.border, 0.6) },
+    '& .high-risk-row': {
+      backgroundColor: 'rgba(239,68,68,0.08)',
+      '&:hover': { backgroundColor: 'rgba(239,68,68,0.14)' },
+    },
   };
->>>>>>> Stashed changes
 };
 
 function PaymentsList() {
@@ -340,12 +309,8 @@ function PaymentsList() {
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
             pageSizeOptions={[10, 25, 50]}
-<<<<<<< Updated upstream
             getRowClassName={(params) => (params.row.highRisk ? 'high-risk-row' : '')}
-            sx={{ height: 600, ...GRID_SX }}
-=======
-              sx={{ height: 600, ...getGridSx(theme) }}
->>>>>>> Stashed changes
+            sx={{ height: 600, ...getGridSx(theme) }}
           />
         )}
       </Card>
