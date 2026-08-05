@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import AICopilot from './AICopilot';
 import { alpha } from '@mui/material/styles';
 
 import {
@@ -33,6 +34,7 @@ import {
   Menu               as MenuIcon,
   ChevronLeft        as ChevronLeftIcon,
   Logout             as LogoutIcon,
+  Psychology         as PsychologyIcon,
   Layers             as LayersIcon,
   Person             as PersonIcon,
 } from '@mui/icons-material';
@@ -81,6 +83,12 @@ const menuSections = [
       { label: 'Fraud Rules',     icon: ManageAccountsIcon, path: '/fraud-rules'     },
     ],
   },
+{
+    label: 'AI',
+    items: [
+      { label: 'AI Copilot',       icon: PsychologyIcon,     path: '#copilot'         },
+    ],
+  },
   {
     label: 'SYSTEM',
     items: [
@@ -110,14 +118,24 @@ function Layout({ children }) {
 
   /* ── nav item ───────────────────────────────────────────────────── */
   const NavItem = ({ item }) => {
-    const isActive = location.pathname === item.path;
+      const isCopilot = item.path === '#copilot';
+      const isActive = !isCopilot && location.pathname === item.path;
     const Icon     = item.icon;
+
+    const handleCopilotClick = (e) => {
+          if (isCopilot) {
+            e.preventDefault();
+            const fab = document.getElementById('copilot-fab');
+            if (fab) fab.click();
+          }
+        };
 
     const inner = (
       <ListItem
         button
-        component={Link}
-        to={item.path}
+        component={isCopilot ? 'div' : Link}
+        to={isCopilot ? undefined : item.path}
+        onClick={handleCopilotClick}
         sx={{
           mx:             '8px',
           mb:             '4px',
@@ -489,6 +507,7 @@ function Layout({ children }) {
         {children}
       </Box>
 
+      <AICopilot />
     </Box>
   );
 }
