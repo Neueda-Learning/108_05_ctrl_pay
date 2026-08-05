@@ -74,12 +74,13 @@ const menuSections = [
     label: 'FRAUD',
     items: [
       { label: 'Fraud Dashboard', icon: SecurityIcon,       path: '/fraud'           },
+      { label: 'Fraud Rules',     icon: ManageAccountsIcon, path: '/fraud-rules'     },
     ],
   },
   {
     label: 'SYSTEM',
     items: [
-      { label: 'Rules',           icon: ManageAccountsIcon, path: '/rules'           },
+      { label: 'Validation Rules', icon: ManageAccountsIcon, path: '/rules'           },
     ],
   },
 ];

@@ -424,6 +424,52 @@ INSERT IGNORE INTO ml_models (
     TRUE, NOW(), 'PROD', 'SYSTEM'
 );
 
+-- TABLE: fraud_rules (Configurable Fraud Detection Rules)
+-- Purpose: Manage fraud detection rules dynamically without redeployment
+CREATE TABLE IF NOT EXISTS fraud_rules (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Unique rule identifier',
+    rule_name VARCHAR(255) NOT NULL UNIQUE COMMENT 'Unique rule name (e.g., LARGE_TRANSACTION_RULE)',
+    rule_type VARCHAR(100) NOT NULL COMMENT 'Rule type classifier (e.g., THRESHOLD, PATTERN, BEHAVIOR)',
+    description TEXT NULL COMMENT 'Human-readable description of rule logic',
+    is_active BOOLEAN NOT NULL DEFAULT TRUE COMMENT 'Whether rule is currently active',
+    severity VARCHAR(50) DEFAULT 'MEDIUM' COMMENT 'Rule severity: LOW, MEDIUM, HIGH, CRITICAL',
+    order_of_execution INT DEFAULT 100 COMMENT 'Execution order (lower first)',
+    weight DECIMAL(5,2) DEFAULT 1.0 COMMENT 'Weight in fraud score calculation',
+    rule_definition JSON NULL COMMENT 'Rule-specific configuration',
+    triggering_conditions JSON NULL COMMENT 'Conditions that trigger this rule',
+    mock_score INT DEFAULT 0 COMMENT 'Mock fraud score (for testing)',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Rule creation date',
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last updated date',
+    created_by VARCHAR(255) NULL COMMENT 'Creator user',
+    updated_by VARCHAR(255) NULL COMMENT 'Last updater user',
+
+    CONSTRAINT chk_severity CHECK (severity IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+    INDEX idx_rule_active (is_active),
+    INDEX idx_rule_name (rule_name),
+    INDEX idx_rule_type (rule_type),
+    INDEX idx_rule_order (order_of_execution)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Configurable fraud detection rules';
+
+-- ========================================
+-- SEED DATA: Default Fraud Rules
+-- ========================================
+INSERT IGNORE INTO fraud_rules (rule_name, rule_type, description, is_active, severity, order_of_execution, weight, created_by, updated_by) VALUES
+('LARGE_TRANSACTION_RULE', 'THRESHOLD', 'Detects unusually large transactions that exceed 80% of account balance', TRUE, 'HIGH', 10, 1.5, 'SYSTEM', 'SYSTEM'),
+('EXTREMELY_LARGE_TRANSACTION_RULE', 'THRESHOLD', 'Auto-rejects transactions exceeding 10000 in any currency', TRUE, 'CRITICAL', 5, 1.2, 'SYSTEM', 'SYSTEM'),
+('ACCOUNT_DRAIN_RULE', 'PATTERN', 'Detects attempts to drain account balance (leaving < 100)', TRUE, 'CRITICAL', 15, 1.5, 'SYSTEM', 'SYSTEM'),
+('TRANSACTION_VELOCITY_RULE', 'VELOCITY', 'Monitors transaction frequency - flags >5 in 5 min or >20 in 24h', TRUE, 'HIGH', 20, 1.2, 'SYSTEM', 'SYSTEM'),
+('BEHAVIOR_CHANGE_RULE', 'BEHAVIOR', 'Detects deviation from historical transaction patterns (3σ threshold)', TRUE, 'MEDIUM', 25, 1.0, 'SYSTEM', 'SYSTEM'),
+('NEW_DESTINATION_RULE', 'ANOMALY', 'Flags transactions to new/untrusted destination accounts (< 30 days)', TRUE, 'MEDIUM', 30, 0.8, 'SYSTEM', 'SYSTEM'),
+('MULTIPLE_FAILURE_RULE', 'PATTERN', 'Detects multiple failed transactions (>3 failures in 7 days)', TRUE, 'MEDIUM', 35, 0.9, 'SYSTEM', 'SYSTEM'),
+('SUSPICIOUS_ACCOUNT_RULE', 'BEHAVIOR', 'Flags suspicious accounts with history of fraud-rejected payments', TRUE, 'HIGH', 40, 1.3, 'SYSTEM', 'SYSTEM'),
+('CROSS_CURRENCY_RULE', 'THRESHOLD', 'Higher scrutiny for cross-currency transactions (>=5000)', TRUE, 'MEDIUM', 45, 0.8, 'SYSTEM', 'SYSTEM'),
+('ML_FRAUD_RULE', 'ANOMALY', 'ML model prediction for fraud probability (XGBoost)', TRUE, 'HIGH', 50, 2.5, 'SYSTEM', 'SYSTEM'),
+('UNUSUAL_TIME_PATTERN_RULE', 'BEHAVIOR', 'Detects off-hours or weekend transactions deviating from normal patterns', TRUE, 'LOW', 55, 0.7, 'SYSTEM', 'SYSTEM'),
+('VELOCITY_ANOMALY_RULE', 'VELOCITY', 'High-velocity transaction detection with statistical analysis', TRUE, 'MEDIUM', 60, 1.1, 'SYSTEM', 'SYSTEM'),
+('CYCLICAL_TRANSACTION_RULE', 'PATTERN', 'Detects circular fund flow patterns (A→B→C→A)', TRUE, 'HIGH', 65, 1.4, 'SYSTEM', 'SYSTEM'),
+('BEHAVIORAL_BASELINE_RULE', 'BEHAVIOR', 'Deviation from baseline customer behavior profile', TRUE, 'MEDIUM', 70, 1.0, 'SYSTEM', 'SYSTEM'),
+('CONTEXTUAL_RISK_AGGREGATION_RULE', 'PATTERN', 'Composite risk assessment combining multiple signals', TRUE, 'HIGH', 75, 1.2, 'SYSTEM', 'SYSTEM');
+
 -- ========================================
 -- VERIFICATION QUERIES (Run after schema creation)
 -- ========================================
@@ -431,6 +477,7 @@ INSERT IGNORE INTO ml_models (
 -- SHOW CREATE TABLE fraud_assessments;
 -- SELECT * FROM fraud_account_risk;
 -- DESC fraud_assessments;
+-- SELECT COUNT(*) FROM fraud_rules WHERE is_active = true;
 
 
 
