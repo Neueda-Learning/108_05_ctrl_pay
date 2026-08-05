@@ -17,6 +17,13 @@ import CustomerProfile from './pages/CustomerProfile';
 import Profile from './pages/Profile';
 import FraudDashboard from './pages/FraudDashboard';
 import FraudRulesManagement from './pages/FraudRulesManagement';
+import PlatformOverviewDashboard from './pages/PlatformOverviewDashboard';
+import TransactionDashboard from './pages/TransactionDashboard';
+import FraudAnalyticsDashboard from './pages/FraudAnalyticsDashboard';
+import CustomerAnalyticsDashboard from './pages/CustomerAnalyticsDashboard';
+import BulkPaymentDashboard from './pages/BulkPaymentDashboard';
+import MLModelDashboard from './pages/MLModelDashboard';
+import ComplianceDashboard from './pages/ComplianceDashboard';
 import { CustomerProvider } from './context/CustomerContext';
 import { AppThemeProvider, useAppTheme } from './context/ThemeContext';
 
@@ -42,6 +49,16 @@ function AppShell() {
             <Route path="/statistics" element={<Analytics />} />
             <Route path="/analytics" element={<Navigate to="/statistics" replace />} />
             <Route path="/fraud" element={<FraudDashboard />} />
+
+            {/* Dashboard Routes */}
+            <Route path="/dashboard/overview" element={<PlatformOverviewDashboard />} />
+            <Route path="/dashboard/transactions" element={<TransactionDashboard />} />
+            <Route path="/dashboard/fraud" element={<FraudAnalyticsDashboard />} />
+            <Route path="/dashboard/customers" element={<CustomerAnalyticsDashboard />} />
+            <Route path="/dashboard/bulk-payments" element={<BulkPaymentDashboard />} />
+            <Route path="/dashboard/ml" element={<MLModelDashboard />} />
+            <Route path="/dashboard/compliance" element={<ComplianceDashboard />} />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Layout>

@@ -19,6 +19,8 @@ import {
   Avatar,
   useMediaQuery,
   useTheme,
+  Menu,
+  MenuItem,
 } from '@mui/material';
 
 import {
@@ -35,6 +37,14 @@ import {
   Logout             as LogoutIcon,
   Layers             as LayersIcon,
   Person             as PersonIcon,
+  KeyboardArrowDown  as KeyboardArrowDownIcon,
+  BarChart           as BarChartIcon,
+  PieChart           as PieChartIcon,
+  Assessment         as AssessmentIcon,
+  People             as PeopleIcon,
+  Settings           as SettingsIcon,
+  Gavel              as GavelIcon,
+  SmartToy           as SmartToyIcon,
 } from '@mui/icons-material';
 
 import { useCustomer } from '../context/CustomerContext';
@@ -93,6 +103,7 @@ const menuSections = [
 function Layout({ children }) {
 
   const [open, setOpen] = useState(true);
+  const [dashboardMenuAnchor, setDashboardMenuAnchor] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -106,6 +117,29 @@ function Layout({ children }) {
 
   const handleDrawerToggle  = () => setOpen(prev => !prev);
   const handleClearCustomer = () => { clearCustomer(); navigate('/'); };
+
+  const handleDashboardMenuOpen = (event) => {
+    setDashboardMenuAnchor(event.currentTarget);
+  };
+
+  const handleDashboardMenuClose = () => {
+    setDashboardMenuAnchor(null);
+  };
+
+  const handleDashboardNavigation = (path) => {
+    navigate(path);
+    handleDashboardMenuClose();
+  };
+
+  const dashboardMenuItems = [
+    { label: 'Platform Overview', icon: DashboardIcon, path: '/dashboard/overview' },
+    { label: 'Transactions', icon: BarChartIcon, path: '/dashboard/transactions' },
+    { label: 'Fraud & Risk', icon: SecurityIcon, path: '/dashboard/fraud' },
+    { label: 'Customer Analytics', icon: PeopleIcon, path: '/dashboard/customers' },
+    { label: 'Bulk Payments', icon: LayersIcon, path: '/dashboard/bulk-payments' },
+    { label: 'ML Model', icon: SmartToyIcon, path: '/dashboard/ml' },
+    { label: 'Compliance', icon: GavelIcon, path: '/dashboard/compliance' },
+  ];
 
 
   /* ── nav item ───────────────────────────────────────────────────── */
@@ -395,7 +429,61 @@ function Layout({ children }) {
             Ctrl-Pay
           </Typography>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+
+            {/* Dashboard Dropdown */}
+            <Button
+              color="inherit"
+              onClick={handleDashboardMenuOpen}
+              endIcon={<KeyboardArrowDownIcon />}
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: custom.text.primary,
+                '&:hover': {
+                  background: alpha(custom.brand.main, 0.12),
+                },
+              }}
+            >
+              Dashboard
+            </Button>
+
+            <Menu
+              anchorEl={dashboardMenuAnchor}
+              open={Boolean(dashboardMenuAnchor)}
+              onClose={handleDashboardMenuClose}
+              sx={{
+                '& .MuiPaper-root': {
+                  background: custom.drawer,
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: `1px solid ${alpha(custom.border, 0.8)}`,
+                  borderRadius: '12px',
+                  mt: 1,
+                },
+              }}
+            >
+              {dashboardMenuItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <MenuItem
+                    key={item.path}
+                    onClick={() => handleDashboardNavigation(item.path)}
+                    sx={{
+                      color: custom.text.secondary,
+                      '&:hover': {
+                        background: alpha(custom.brand.main, 0.12),
+                        color: custom.text.primary,
+                      },
+                    }}
+                  >
+                    <IconComponent sx={{ mr: 1.5, fontSize: '1.2rem' }} />
+                    {item.label}
+                  </MenuItem>
+                );
+              })}
+            </Menu>
 
             <ThemeToggle />
 
