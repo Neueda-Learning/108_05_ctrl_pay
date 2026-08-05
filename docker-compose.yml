@@ -81,7 +81,7 @@ services:
       ml:
         condition: service_healthy
     ports:
-      - "8080:80"
+      - "3000:80"
     healthcheck:
       test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost/"]
       interval: 30s

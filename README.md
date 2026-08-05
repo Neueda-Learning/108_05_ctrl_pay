@@ -78,13 +78,14 @@ After deployment, access services through the VM IP. Example:
 $env:VM_IP="10.9.71.48"
 ```
 
-Deployment rule: only port `8080` is externally accessible.
+Access via VM IP:
 
-- Frontend: `http://${VM_IP}:8080`
-- Swagger UI: `http://${VM_IP}:8080/swagger-ui/index.html`
-- OpenAPI JSON: `http://${VM_IP}:8080/v3/api-docs`
+- Frontend: `http://${VM_IP}:3000`
+- Swagger UI: `http://${VM_IP}:3000/swagger-ui/index.html`
+- OpenAPI JSON: `http://${VM_IP}:3000/v3/api-docs`
+- Jenkins: `http://${VM_IP}:8080`
 
-If Jenkins is also routed through the same external gateway, it should be exposed by your server/network team on that same public endpoint.
+Note: Port `8080` is reserved for Jenkins on the VM. The app frontend runs on port `3000`.
 
 ## Development Workflow
 

@@ -27,7 +27,8 @@ No `.env` file is required. Runtime values are defined directly in `docker-compo
 
 Deployment rule: only port `8080` is externally accessible.
 
-Port mapping is defined directly in `docker-compose.yml` as `8080:80`.
+Port `8080` is reserved for Jenkins on this VM.
+The application frontend nginx binds to port `3000`.
 
 Access via VM IP:
 
@@ -35,11 +36,10 @@ Access via VM IP:
 $env:VM_IP="10.9.71.48"
 ```
 
-- Frontend: `http://${VM_IP}:8080`
-- Swagger UI: `http://${VM_IP}:8080/swagger-ui/index.html`
-- OpenAPI JSON: `http://${VM_IP}:8080/v3/api-docs`
-
-Jenkins exposure on the same endpoint depends on your Linux host/reverse-proxy/network configuration.
+- Frontend: `http://${VM_IP}:3000`
+- Swagger UI: `http://${VM_IP}:3000/swagger-ui/index.html`
+- OpenAPI JSON: `http://${VM_IP}:3000/v3/api-docs`
+- Jenkins: `http://${VM_IP}:8080`
 
 ## Jenkins pipeline stages (same method as kk-04 reference)
 
