@@ -8,12 +8,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.neueda.domain.FraudAssessmentRecord;
+import com.neueda.domain.FraudDecision;
 import com.neueda.domain.PaymentRecord;
 import com.neueda.domain.PaymentStatus;
 import com.neueda.domain.PaymentStatusHistoryRecord;
 import com.neueda.domain.Severity;
 import com.neueda.domain.ValidationResultRecord;
 import com.neueda.domain.ValidationRuleRecord;
+import com.neueda.fraud.FraudDetectionService;
+import com.neueda.repository.FraudAssessmentRepository;
 import com.neueda.repository.PaymentRepository;
 import com.neueda.repository.PaymentStatusHistoryRepository;
 import com.neueda.repository.ValidationResultRepository;
@@ -40,19 +44,25 @@ public class PaymentService {
     private final ValidationResultRepository validationResultRepository;
     private final PaymentStatusHistoryRepository paymentStatusHistoryRepository;
     private final RuleEngine ruleEngine;
+    private final FraudDetectionService fraudDetectionService;
+    private final FraudAssessmentRepository fraudAssessmentRepository;
     
     public PaymentService(
         PaymentRepository paymentRepository,
         ValidationRuleRepository validationRuleRepository,
         ValidationResultRepository validationResultRepository,
         PaymentStatusHistoryRepository paymentStatusHistoryRepository,
-        RuleEngine ruleEngine
+        RuleEngine ruleEngine,
+        FraudDetectionService fraudDetectionService,
+        FraudAssessmentRepository fraudAssessmentRepository
     ) {
         this.paymentRepository = paymentRepository;
         this.validationRuleRepository = validationRuleRepository;
         this.validationResultRepository = validationResultRepository;
         this.paymentStatusHistoryRepository = paymentStatusHistoryRepository;
         this.ruleEngine = ruleEngine;
+        this.fraudDetectionService = fraudDetectionService;
+        this.fraudAssessmentRepository = fraudAssessmentRepository;
     }
     
     /**
@@ -128,9 +138,37 @@ public class PaymentService {
                 PaymentStatusHistoryRecord.createInitial(savedPayment.id())
             );
             
-            // 9. Auto-transition to VALIDATED (no manual step required)
-            PaymentRecord validatedPayment = transitionPayment(savedPayment.id(), PaymentStatus.VALIDATED);
-            return validatedPayment;
+            // 9. Perform fraud detection assessment
+            FraudAssessmentRecord fraudAssessment = fraudDetectionService.assessPayment(savedPayment);
+            
+            // 10. Handle fraud detection decision
+            if (fraudAssessment.decision() == FraudDecision.APPROVED) {
+                // Payment approved - proceed to VALIDATED
+                PaymentRecord validatedPayment = transitionPayment(savedPayment.id(), PaymentStatus.VALIDATED);
+                return validatedPayment;
+            } else if (fraudAssessment.decision() == FraudDecision.SUSPICIOUS) {
+                // Payment needs manual review - transition to SUSPICIOUS status
+                PaymentRecord suspiciousPayment = transitionPayment(savedPayment.id(), PaymentStatus.SUSPICIOUS);
+                return suspiciousPayment;
+            } else {
+                // Payment rejected by fraud detection - fail it immediately
+                PaymentRecord rejectedPayment = savedPayment.withFailure(
+                    "FRAUD_DETECTED",
+                    fraudAssessment.explanation()
+                );
+                paymentRepository.update(rejectedPayment);
+                
+                paymentStatusHistoryRepository.save(
+                    PaymentStatusHistoryRecord.failure(
+                        savedPayment.id(),
+                        PaymentStatus.CREATED,
+                        "FRAUD_DETECTED",
+                        fraudAssessment.explanation(),
+                        "FRAUD_ENGINE"
+                    )
+                );
+                return rejectedPayment;
+            }
         } else {
             // Status is FAILED (due to validation)
             paymentStatusHistoryRepository.save(

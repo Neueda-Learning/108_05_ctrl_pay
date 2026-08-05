@@ -89,7 +89,7 @@ CREATE TABLE IF NOT EXISTS payments (
     source_amount DECIMAL(19, 2) NULL COMMENT 'Amount debited from sender account (in sender currency)',
     destination_amount DECIMAL(19, 2) NULL COMMENT 'Amount credited to receiver account (in receiver currency)',
     exchange_rate DECIMAL(19, 6) NULL COMMENT 'Exchange rate applied (if cross-currency)',
-    status VARCHAR(20) NOT NULL DEFAULT 'CREATED' COMMENT 'Payment lifecycle status: CREATED, VALIDATED, SENT, COMPLETED, FAILED',
+    status VARCHAR(20) NOT NULL DEFAULT 'CREATED' COMMENT 'Payment lifecycle status: CREATED, VALIDATED, SUSPICIOUS, SENT, COMPLETED, FAILED',
     error_code VARCHAR(50) NULL COMMENT 'Error code if payment failed (e.g., VALIDATION_FAILED, INSUFFICIENT_FUNDS)',
     error_message TEXT NULL COMMENT 'Human-readable error message',
     settlement_attempt_count INT NOT NULL DEFAULT 0 COMMENT 'Number of settlement processing attempts',
@@ -286,10 +286,151 @@ VALUES (
 ) ON DUPLICATE KEY UPDATE is_active = TRUE;
 
 -- ========================================
+-- TABLE: fraud_assessments
+-- Purpose: Store fraud detection results for each payment
+-- ========================================
+CREATE TABLE IF NOT EXISTS fraud_assessments (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Unique fraud assessment identifier',
+    payment_id BIGINT NOT NULL UNIQUE COMMENT 'Foreign key to payments table',
+    hybrid_fraud_score DECIMAL(5, 2) NOT NULL COMMENT 'Final hybrid fraud score (0-100)',
+    rule_engine_score DECIMAL(5, 2) NOT NULL COMMENT 'Aggregated score from fraud rules (0-100)',
+    ml_fraud_probability DECIMAL(5, 2) NOT NULL COMMENT 'ML model fraud probability (0-100 scale)',
+    triggered_rules_json JSON NULL COMMENT 'Array of triggered rule names',
+    rule_scores_json JSON NOT NULL COMMENT 'Detailed breakdown of rule scores',
+    decision VARCHAR(20) NOT NULL DEFAULT 'APPROVED' COMMENT 'Final decision: APPROVED, SUSPICIOUS, REJECTED',
+    risk_level VARCHAR(20) NOT NULL DEFAULT 'LOW' COMMENT 'Risk classification: LOW, MEDIUM, HIGH, CRITICAL',
+    explanation TEXT NOT NULL COMMENT 'Explanation of the fraud assessment',
+    reviewed_by VARCHAR(255) NULL COMMENT 'Admin user who reviewed (null if auto-decision)',
+    reviewed_at TIMESTAMP NULL COMMENT 'Timestamp of admin review',
+    reviewer_notes TEXT NULL COMMENT 'Admin reviewer notes/reasoning',
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT 'Assessment creation timestamp',
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update timestamp',
+
+    CONSTRAINT fk_fraud_assessment_payment_id FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE,
+    CONSTRAINT chk_fraud_score CHECK (hybrid_fraud_score >= 0 AND hybrid_fraud_score <= 100),
+    CONSTRAINT chk_rule_score CHECK (rule_engine_score >= 0 AND rule_engine_score <= 100),
+    CONSTRAINT chk_ml_probability CHECK (ml_fraud_probability >= 0 AND ml_fraud_probability <= 100),
+    CONSTRAINT chk_fraud_decision CHECK (decision IN ('APPROVED', 'SUSPICIOUS', 'REJECTED')),
+    CONSTRAINT chk_fraud_risk_level CHECK (risk_level IN ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL')),
+
+    -- Indexes for efficient querying
+    INDEX idx_payment_id (payment_id) COMMENT 'Lookup assessment by payment',
+    INDEX idx_decision (decision) COMMENT 'Filter by fraud decision',
+    INDEX idx_decision_reviewed (decision, reviewed_by) COMMENT 'Find pending reviews',
+    INDEX idx_created_at (created_at) COMMENT 'Order by creation date',
+    INDEX idx_risk_level (risk_level) COMMENT 'Filter by risk level'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Fraud assessment records with decision tracking';
+
+-- ========================================
+-- TABLE: fraud_account_risk
+-- Purpose: Track account rejection history for risk escalation
+-- ========================================
+CREATE TABLE IF NOT EXISTS fraud_account_risk (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT COMMENT 'Unique risk record identifier',
+    account_number VARCHAR(12) NOT NULL COMMENT 'Account number',
+    rejection_count INT NOT NULL DEFAULT 0 COMMENT 'Number of rejected/suspicious payments in window',
+    window_start TIMESTAMP NOT NULL COMMENT 'Start of rolling 30-day window',
+    window_end TIMESTAMP NOT NULL COMMENT 'End of rolling 30-day window',
+    latest_rejection_at TIMESTAMP NULL COMMENT 'Timestamp of most recent rejection',
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT 'Last update',
+
+    CONSTRAINT fk_fraud_risk_account FOREIGN KEY (account_number) REFERENCES accounts(account_number) ON DELETE CASCADE,
+
+    INDEX idx_account_number (account_number) COMMENT 'Lookup risk record by account'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Account fraud risk tracking for escalation';
+
+-- ========================================
+-- TABLE: ml_models (Phase 1 - ML Model Versioning)
+-- ========================================
+CREATE TABLE IF NOT EXISTS ml_models (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    model_name VARCHAR(100) NOT NULL,
+    model_version VARCHAR(50) NOT NULL,
+    description TEXT NULL,
+    model_type VARCHAR(50) NOT NULL DEFAULT 'XGBOOST',
+    model_path VARCHAR(500) NOT NULL,
+    training_date TIMESTAMP NULL,
+    training_dataset_name VARCHAR(255) NOT NULL DEFAULT 'unknown',
+    training_dataset_size INT UNSIGNED NULL,
+    accuracy_score DECIMAL(5,2) NULL,
+    precision_score DECIMAL(5,2) NULL,
+    recall_score DECIMAL(5,2) NULL,
+    f1_score DECIMAL(5,2) NULL,
+    auc_score DECIMAL(5,2) NULL,
+    false_positive_rate DECIMAL(5,2) NULL,
+    false_negative_rate DECIMAL(5,2) NULL,
+    is_active BOOLEAN NOT NULL DEFAULT FALSE,
+    deployment_date TIMESTAMP NULL,
+    retirement_date TIMESTAMP NULL,
+    deployment_context VARCHAR(100) NULL,
+    feature_columns_json JSON NULL,
+    hyperparameters_json JSON NULL,
+    created_by VARCHAR(255) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT uk_model_name_version UNIQUE (model_name, model_version),
+    INDEX idx_active_model (is_active, deployment_date),
+    INDEX idx_model_name (model_name)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ML model versioning and deployment tracking';
+
+-- TABLE: ml_model_predictions (Phase 1 - Prediction Tracking)
+CREATE TABLE IF NOT EXISTS ml_model_predictions (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    ml_model_id BIGINT NOT NULL,
+    payment_id BIGINT NOT NULL,
+    assessment_id BIGINT NULL,
+    predicted_fraud_probability DECIMAL(5,2) NOT NULL,
+    prediction_confidence DECIMAL(5,2) NULL,
+    prediction_latency_ms INT UNSIGNED NULL,
+    ground_truth_fraud BOOLEAN NULL,
+    ground_truth_source VARCHAR(100) NULL,
+    ground_truth_date TIMESTAMP NULL,
+    is_correct_prediction BOOLEAN NULL,
+    prediction_type VARCHAR(50) NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_ml_pred_model FOREIGN KEY (ml_model_id) REFERENCES ml_models(id),
+    CONSTRAINT fk_ml_pred_payment FOREIGN KEY (payment_id) REFERENCES payments(id) ON DELETE CASCADE,
+    INDEX idx_ml_pred_model (ml_model_id),
+    INDEX idx_ml_pred_payment (payment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ML model prediction tracking';
+
+-- TABLE: fraud_audit_events (Phase 1 - Audit Trail)
+CREATE TABLE IF NOT EXISTS fraud_audit_events (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    assessment_id BIGINT NOT NULL,
+    event_type VARCHAR(100) NOT NULL,
+    event_timestamp TIMESTAMP NOT NULL,
+    triggered_by VARCHAR(50) NOT NULL,
+    triggered_by_user_id VARCHAR(255) NULL,
+    event_data JSON NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_audit_assessment FOREIGN KEY (assessment_id) REFERENCES fraud_assessments(id) ON DELETE CASCADE,
+    INDEX idx_audit_assessment (assessment_id),
+    INDEX idx_audit_event_type (event_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Fraud assessment audit trail';
+
+-- Seed initial ML model record (active, represents the deployed XGBoost model)
+INSERT IGNORE INTO ml_models (
+    model_name, model_version, description, model_type, model_path,
+    training_date, training_dataset_name, training_dataset_size,
+    accuracy_score, precision_score, recall_score, f1_score, auc_score,
+    is_active, deployment_date, deployment_context, created_by
+) VALUES (
+    'xgboost_paysim', '1.0.0',
+    'XGBoost model trained on PaySim synthetic financial dataset',
+    'XGBOOST', '/models/XGBoostModel.pkl',
+    NOW(), 'paysim_v1', 6000000,
+    96.50, 92.30, 94.80, 93.50, 97.20,
+    TRUE, NOW(), 'PROD', 'SYSTEM'
+);
+
+-- ========================================
 -- VERIFICATION QUERIES (Run after schema creation)
 -- ========================================
 -- SELECT table_name FROM information_schema.tables WHERE table_schema = 'ctrl_pay';
--- SHOW CREATE TABLE payments;
--- SELECT * FROM validation_rules;
--- DESC payment_status_history;
+-- SHOW CREATE TABLE fraud_assessments;
+-- SELECT * FROM fraud_account_risk;
+-- DESC fraud_assessments;
+
+
 

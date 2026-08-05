@@ -59,13 +59,28 @@ public class FraudRiskService {
         if (payment == null || payment.status() != PaymentStatus.COMPLETED) {
             return new PaymentRisk(null, false);
         }
-
         try {
             Double fraudProbability = fetchFraudProbability(payment);
             boolean highRisk = fraudProbability != null && fraudProbability >= HIGH_RISK_THRESHOLD;
             return new PaymentRisk(fraudProbability, highRisk);
         } catch (Exception ignored) {
-            // Best-effort risk indication only; never fail payment/read APIs.
+            return new PaymentRisk(null, false);
+        }
+    }
+
+    /**
+     * Assess ML fraud probability for a payment during creation (before settlement).
+     * Works for any payment status — uses current account balances to estimate pre/post balances.
+     */
+    public PaymentRisk assessPaymentRiskForCreation(PaymentRecord payment) {
+        if (payment == null) {
+            return new PaymentRisk(null, false);
+        }
+        try {
+            Double fraudProbability = fetchFraudProbability(payment);
+            boolean highRisk = fraudProbability != null && fraudProbability >= HIGH_RISK_THRESHOLD;
+            return new PaymentRisk(fraudProbability, highRisk);
+        } catch (Exception ignored) {
             return new PaymentRisk(null, false);
         }
     }
@@ -75,21 +90,22 @@ public class FraudRiskService {
             .orElseThrow(() -> new IllegalArgumentException("Account not found: " + accountNumber));
 
         LocalDateTime since = LocalDateTime.now().minusDays(RISK_WINDOW_DAYS);
-        List<PaymentRecord> recentPayments = paymentRepository.findCompletedByAccountSince(accountNumber, since);
 
-        int highRiskCount = 0;
-        for (PaymentRecord payment : recentPayments) {
-            if (assessPaymentRisk(payment).highRisk()) {
-                highRiskCount++;
-            }
-        }
+        // Count payments that were rejected by fraud or are currently suspicious
+        List<PaymentRecord> allRecent = paymentRepository.findAll();
+        long fraudRejectedCount = allRecent.stream()
+            .filter(p -> p.sourceAccount().equals(accountNumber) || p.destinationAccount().equals(accountNumber))
+            .filter(p -> p.createdAt().isAfter(since))
+            .filter(p -> p.status() == PaymentStatus.FAILED && "FRAUD_DETECTED".equals(p.errorCode())
+                      || p.status() == PaymentStatus.SUSPICIOUS)
+            .count();
 
-        boolean suspicious = highRiskCount >= SUSPICIOUS_COUNT_THRESHOLD;
+        boolean suspicious = fraudRejectedCount >= SUSPICIOUS_COUNT_THRESHOLD;
         if (suspicious && account.accountStatus() != AccountStatus.SUSPICIOUS) {
             accountRepository.update(account.withStatus(AccountStatus.SUSPICIOUS));
         }
 
-        return new AccountRiskSummary(highRiskCount, suspicious);
+        return new AccountRiskSummary((int) fraudRejectedCount, suspicious);
     }
 
     private Double fetchFraudProbability(PaymentRecord payment) {

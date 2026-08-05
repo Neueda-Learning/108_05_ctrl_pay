@@ -22,6 +22,12 @@ public enum PaymentStatus {
     VALIDATED("Validated"),
     
     /**
+     * Payment is under fraud review by administrator.
+     * Triggered by fraud detection engine when hybrid fraud score exceeds review threshold.
+     */
+    SUSPICIOUS("Suspicious"),
+    
+    /**
      * Payment has been transmitted to the destination system.
      */
     SENT("Sent"),

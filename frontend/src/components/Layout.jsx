@@ -29,6 +29,7 @@ import {
   TrendingUp         as TrendingUpIcon,
   ReceiptLong        as ReceiptIcon,
   ManageAccounts     as ManageAccountsIcon,
+  Security           as SecurityIcon,
   Menu               as MenuIcon,
   ChevronLeft        as ChevronLeftIcon,
   Logout             as LogoutIcon,
@@ -67,6 +68,12 @@ const menuSections = [
     label: 'ANALYTICS',
     items: [
       { label: 'Statistics',      icon: TrendingUpIcon,     path: '/statistics'      },
+    ],
+  },
+  {
+    label: 'FRAUD',
+    items: [
+      { label: 'Fraud Dashboard', icon: SecurityIcon,       path: '/fraud'           },
     ],
   },
   {
