@@ -375,43 +375,7 @@ function PaymentProcessing() {
             </CardContent>
           </Card>
 
-          {/* Info Card */}
-          <Card>
-            <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                Processing Info
-              </Typography>
-              <Box sx={{ space: 1 }}>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="textSecondary">
-                    Retry Attempts
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {retryCount} / {MAX_RETRIES}
-                  </Typography>
-                </Box>
-                <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" color="textSecondary">
-                    Processing Status
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                    {autoProcessing ? 'Active' : 'Completed'}
-                  </Typography>
-                </Box>
-                {errorDetails && (
-                  <Box>
-                    <Typography variant="caption" color="textSecondary">
-                      Error Details
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 500, color: 'error.main' }}>
-                      {errorDetails.code && `[${errorDetails.code}] `}
-                      {errorDetails.message}
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
+          {/* Info Card section removed - was displaying Processing Info, Retry Attempts, Processing Status, and Error Details */}
         </Grid>
       </Grid>
     </Box>

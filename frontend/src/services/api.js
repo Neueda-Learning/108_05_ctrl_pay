@@ -99,8 +99,9 @@ export const accountAPI = {
   getAccountByNumber: (accountNumber) => apiClient.get(`/accounts/by-number/${accountNumber}`),
 };
 
-// Currency Conversion API
+// Currency API
 export const currencyAPI = {
+  getCurrencies: () => apiClient.get('/currencies'),
   convert: (data) => apiClient.post('/convert', data),
 };
 
