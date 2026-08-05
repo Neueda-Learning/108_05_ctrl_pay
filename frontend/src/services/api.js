@@ -45,6 +45,12 @@ export const paymentAPI = {
 
   // Get complete audit trail
   getPaymentAudit: (id) => apiClient.get(`/payments/${id}/audit`),
+
+  // Download payment receipt PDF for an authorized customer
+  downloadReceipt: (customerId, id) => apiClient.get(
+    `/customers/${customerId}/payments/${id}/receipt`,
+    { responseType: 'blob' }
+  ),
 };
 
 // Validation Rules API
