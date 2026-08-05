@@ -84,6 +84,17 @@ public record PaymentResponse(
      */
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss")
     LocalDateTime updatedAt,
+
+    /**
+     * Fraud probability percentage (0-100), if available.
+     * This is informational only and does not affect payment status.
+     */
+    Double fraudProbability,
+
+    /**
+     * Whether this payment is considered high risk (fraudProbability >= 80).
+     */
+    Boolean highRisk,
     
     /**
      * Validation results - shows all validation rules executed and their outcomes.

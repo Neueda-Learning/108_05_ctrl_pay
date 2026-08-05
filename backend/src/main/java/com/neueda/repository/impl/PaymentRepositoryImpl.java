@@ -280,6 +280,30 @@ public class PaymentRepositoryImpl implements PaymentRepository {
     }
 
     @Override
+    public List<PaymentRecord> findCompletedByAccountSince(String accountNumber, LocalDateTime since) {
+        String sql = """
+            SELECT id, idempotency_key, source_account, destination_account, amount, currency,
+                   source_amount, destination_amount, exchange_rate,
+                   status, error_code, error_message,
+                   settlement_attempt_count, max_settlement_attempts, last_settlement_attempt_time, next_settlement_retry_time, settled_at,
+                   created_at, updated_at
+            FROM payments
+            WHERE status = 'COMPLETED'
+              AND (source_account = ? OR destination_account = ?)
+              AND created_at >= ?
+            ORDER BY created_at DESC
+            """;
+
+        return jdbcTemplate.query(
+            sql,
+            ROW_MAPPER,
+            accountNumber,
+            accountNumber,
+            Timestamp.valueOf(since)
+        );
+    }
+
+    @Override
     public List<PaymentRecord> findAll() {
         String sql = """
             SELECT id, idempotency_key, source_account, destination_account, amount, currency, 

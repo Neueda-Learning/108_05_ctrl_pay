@@ -13,7 +13,7 @@ import {
   Stack,
 } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
-import { paymentAPI, fraudAPI } from '../services/api';
+import { paymentAPI } from '../services/api';
 import { format } from 'date-fns';
 
 const statusColors = {
@@ -30,7 +30,6 @@ function PaymentDetail() {
   const [payment, setPayment] = useState(null);
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fraudProbability, setFraudProbability] = useState(null);
 
   useEffect(() => {
     fetchPaymentDetails();
@@ -47,11 +46,6 @@ function PaymentDetail() {
       setPayment(paymentRes.data);
       setHistory(Array.isArray(historyRes.data) ? historyRes.data : []);
 
-      if (paymentRes.data?.status === 'COMPLETED') {
-        await fetchFraudProbability(paymentRes.data);
-      } else {
-        setFraudProbability(null);
-      }
     } catch (error) {
       console.error('Error fetching payment details:', error);
     } finally {
@@ -59,28 +53,10 @@ function PaymentDetail() {
     }
   };
 
-  const fetchFraudProbability = async (paymentData) => {
-    try {
-      const sourceAmount = Number(paymentData.sourceAmount || paymentData.amount || 0);
-      const destinationAmount = Number(paymentData.destinationAmount || paymentData.amount || 0);
-
-      const payload = {
-        amount: Number(paymentData.amount || 0),
-        oldbalanceOrg: sourceAmount,
-        newbalanceOrig: Math.max(sourceAmount - Number(paymentData.amount || 0), 0),
-        oldbalanceDest: Math.max(destinationAmount - Number(paymentData.amount || 0), 0),
-        newbalanceDest: destinationAmount,
-        transaction_type: 'TRANSFER',
-      };
-
-      const response = await fraudAPI.predict(payload);
-      const probability = Number(response.data?.fraud_probability);
-      setFraudProbability(Number.isNaN(probability) ? null : probability.toFixed(2));
-    } catch (error) {
-      console.error('Error fetching fraud probability:', error);
-      setFraudProbability(null);
-    }
-  };
+  const fraudProbability = payment?.fraudProbability != null && !Number.isNaN(Number(payment.fraudProbability))
+    ? Number(payment.fraudProbability).toFixed(2)
+    : null;
+  const isHighRisk = fraudProbability !== null && Number(fraudProbability) >= 80;
 
   if (loading) {
     return (
@@ -174,11 +150,16 @@ function PaymentDetail() {
           </Card>
 
           {/* Status Timeline */}
-          <Card>
+          <Card sx={isHighRisk ? { border: '1px solid rgba(239,68,68,0.35)', backgroundColor: 'rgba(239,68,68,0.04)' } : undefined}>
             <CardContent>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                Status History
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                  Status History
+                </Typography>
+                {isHighRisk && (
+                  <Chip label="High Risk Transaction" size="small" color="error" variant="outlined" />
+                )}
+              </Box>
               {history && history.length > 0 ? (
                 <Stack spacing={2}>
                   {history.map((item, idx) => (
@@ -188,7 +169,11 @@ function PaymentDetail() {
                         display: 'flex',
                         gap: 2,
                         pb: idx < history.length - 1 ? 2 : 0,
-                        borderBottom: idx < history.length - 1 ? '1px solid rgba(99,102,241,0.15)' : 'none',
+                        borderBottom: idx < history.length - 1
+                          ? isHighRisk
+                            ? '1px solid rgba(239,68,68,0.25)'
+                            : '1px solid rgba(99,102,241,0.15)'
+                          : 'none',
                       }}
                     >
                       <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>

@@ -16,6 +16,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { accountAPI, currencyAPI } from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
+import StatusBadge from '../components/StatusBadge';
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
@@ -164,11 +165,19 @@ function CustomerProfile() {
                 </Typography>
               ) : (
                 <Stack spacing={1.5}>
+                  {accounts.some((account) => account.accountStatus === 'SUSPICIOUS') && (
+                    <Alert severity="warning">
+                      Suspicious Account detected based on high-risk transactions in the last 30 days.
+                    </Alert>
+                  )}
                   {accounts.map((account) => (
                     <Box key={account.accountId || account.id} sx={{ p: 1.5, border: '1px solid #e0e0e0', borderRadius: 1 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
-                        {account.accountName}
-                      </Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>
+                          {account.accountName}
+                        </Typography>
+                        <StatusBadge status={account.accountStatus} />
+                      </Box>
                       <Typography variant="body2" color="text.secondary">
                         {account.bankName} | {account.ifscCode}
                       </Typography>

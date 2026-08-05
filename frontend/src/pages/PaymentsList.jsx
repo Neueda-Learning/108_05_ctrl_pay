@@ -10,6 +10,7 @@ import {
   CircularProgress,
   MenuItem,
   InputAdornment,
+  Chip,
 } from '@mui/material';
 import { DataGrid } from '@mui/x-data-grid';
 import { Add, Search } from '@mui/icons-material';
@@ -67,6 +68,10 @@ const GRID_SX = {
   '& .MuiDataGrid-overlay': { background: 'rgba(11,17,32,0.85)', color: '#94A3B8' },
   '& .MuiDataGrid-virtualScroller': { background: 'transparent' },
   '& .MuiDataGrid-withBorderColor': { borderColor: 'rgba(255,255,255,0.05)' },
+  '& .high-risk-row': {
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    '&:hover': { backgroundColor: 'rgba(239,68,68,0.14)' },
+  },
 };
 
 function PaymentsList() {
@@ -127,6 +132,28 @@ function PaymentsList() {
       headerName: 'Status',
       width: 140,
       renderCell: (params) => <StatusBadge status={params.value} />,
+    },
+    {
+      field: 'risk',
+      headerName: 'Risk',
+      width: 190,
+      sortable: false,
+      renderCell: (params) => {
+        const isHighRisk = Boolean(params.row.highRisk);
+        const probability = params.row.fraudProbability;
+        if (!isHighRisk) {
+          return <Typography variant="caption" color="text.secondary">Normal</Typography>;
+        }
+
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Chip label="High Risk" size="small" color="error" variant="outlined" />
+            <Typography variant="caption" sx={{ color: '#FCA5A5', fontWeight: 600 }}>
+              {typeof probability === 'number' ? `${probability.toFixed(2)}%` : '>=80%'}
+            </Typography>
+          </Box>
+        );
+      },
     },
     {
       field: 'createdAt',
@@ -275,6 +302,7 @@ function PaymentsList() {
             paginationModel={paginationModel}
             onPaginationModelChange={setPaginationModel}
             pageSizeOptions={[10, 25, 50]}
+            getRowClassName={(params) => (params.row.highRisk ? 'high-risk-row' : '')}
             sx={{ height: 600, ...GRID_SX }}
           />
         )}

@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, render_template, request
 from flask_cors import CORS
+import pandas as pd
 import pickle
 from pathlib import Path
 
@@ -10,6 +11,46 @@ CORS(app)
 MODEL_PATH = Path(__file__).resolve().parent / "XGBoostModel.pkl"
 with MODEL_PATH.open("rb") as model_file:
     model = pickle.load(model_file)
+
+FEATURE_COLUMNS = list(getattr(model, "feature_names_in_", [
+    "amount",
+    "oldbalanceOrg",
+    "newbalanceOrig",
+    "oldbalanceDest",
+    "newbalanceDest",
+    "type_CASH_OUT",
+    "type_DEBIT",
+    "type_PAYMENT",
+    "type_TRANSFER",
+]))
+
+
+def build_feature_frame(amount, oldbalanceOrg, newbalanceOrig, oldbalanceDest, newbalanceDest, transaction_type):
+    type_CASH_OUT = 0
+    type_DEBIT = 0
+    type_PAYMENT = 0
+    type_TRANSFER = 0
+
+    if transaction_type == "CASH_OUT":
+        type_CASH_OUT = 1
+    elif transaction_type == "DEBIT":
+        type_DEBIT = 1
+    elif transaction_type == "PAYMENT":
+        type_PAYMENT = 1
+    elif transaction_type == "TRANSFER":
+        type_TRANSFER = 1
+
+    return pd.DataFrame([{
+        "amount": amount,
+        "oldbalanceOrg": oldbalanceOrg,
+        "newbalanceOrig": newbalanceOrig,
+        "oldbalanceDest": oldbalanceDest,
+        "newbalanceDest": newbalanceDest,
+        "type_CASH_OUT": type_CASH_OUT,
+        "type_DEBIT": type_DEBIT,
+        "type_PAYMENT": type_PAYMENT,
+        "type_TRANSFER": type_TRANSFER,
+    }], columns=FEATURE_COLUMNS)
 
 
 @app.route("/")
@@ -28,33 +69,14 @@ def predict():
 
     transaction_type = request.form["transaction_type"]
 
-    # One-Hot Encoding
-    type_CASH_OUT = 0
-    type_DEBIT = 0
-    type_PAYMENT = 0
-    type_TRANSFER = 0
-
-    if transaction_type == "CASH_OUT":
-        type_CASH_OUT = 1
-    elif transaction_type == "DEBIT":
-        type_DEBIT = 1
-    elif transaction_type == "PAYMENT":
-        type_PAYMENT = 1
-    elif transaction_type == "TRANSFER":
-        type_TRANSFER = 1
-    # CASH_IN remains all zeros
-
-    features = [[
+    features = build_feature_frame(
         amount,
         oldbalanceOrg,
         newbalanceOrig,
         oldbalanceDest,
         newbalanceDest,
-        type_CASH_OUT,
-        type_DEBIT,
-        type_PAYMENT,
-        type_TRANSFER
-    ]]
+        transaction_type,
+    )
 
     probability = model.predict_proba(features)[0]
 
@@ -80,32 +102,14 @@ def predict_json():
 
     transaction_type = payload["transaction_type"]
 
-    # One-Hot Encoding (same logic as /predict)
-    type_CASH_OUT = 0
-    type_DEBIT = 0
-    type_PAYMENT = 0
-    type_TRANSFER = 0
-
-    if transaction_type == "CASH_OUT":
-        type_CASH_OUT = 1
-    elif transaction_type == "DEBIT":
-        type_DEBIT = 1
-    elif transaction_type == "PAYMENT":
-        type_PAYMENT = 1
-    elif transaction_type == "TRANSFER":
-        type_TRANSFER = 1
-
-    features = [[
+    features = build_feature_frame(
         amount,
         oldbalanceOrg,
         newbalanceOrig,
         oldbalanceDest,
         newbalanceDest,
-        type_CASH_OUT,
-        type_DEBIT,
-        type_PAYMENT,
-        type_TRANSFER
-    ]]
+        transaction_type,
+    )
 
     probability = model.predict_proba(features)[0]
     fraud_probability = round(float(probability[1]) * 100, 2)
