@@ -16,6 +16,7 @@ import {
 import { AccountCircle, AddCard, Analytics, ArrowForward, PersonAdd, Security } from '@mui/icons-material';
 import { useCustomer } from '../context/CustomerContext';
 import { adminFraudAPI } from '../services/api';
+import TransactionFlowDiagram from '../components/TransactionFlowDiagram';
 
 const actionCards = [
   {
@@ -210,25 +211,10 @@ function Dashboard() {
         </Card>
       )}
 
-      <Card>
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-            Quick tips
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            1. Create the customer profile first.
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            2. Validate the customer ID before creating an account.
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            3. Use the customer account dropdown when starting a payment.
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            4. Open the statistics dashboard to filter payment history by customer, date, account, and status.
-          </Typography>
-        </CardContent>
-      </Card>
+      {/* Transaction Lifecycle Flow Diagram */}
+      <Box sx={{ mt: 3 }}>
+        <TransactionFlowDiagram />
+      </Box>
 
       {customer && (
         <Box sx={{ mt: 3 }}>

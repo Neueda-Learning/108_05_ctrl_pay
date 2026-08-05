@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Box,
   Card,
@@ -21,6 +22,7 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Button,
   useTheme,
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
@@ -39,6 +41,7 @@ import { profileAPI } from '../services/api';
 function Profile() {
   const theme = useTheme();
   const custom = theme.customTokens;
+  const navigate = useNavigate();
   const { currentCustomer } = useCustomer();
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -92,10 +95,28 @@ function Profile() {
 
   if (!currentCustomer?.customerId) {
     return (
-      <Box sx={{ p: 4 }}>
-        <Alert severity="info">
-          Please select or create a customer first to view their profile.
-        </Alert>
+      <Box sx={{ p: 4, textAlign: 'center' }}>
+        <Box sx={{ maxWidth: 500, mx: 'auto' }}>
+          <Typography variant="h5" sx={{ mb: 2, fontWeight: 600 }}>
+            No Customer Loaded
+          </Typography>
+          <Typography variant="body1" sx={{ color: custom.text.secondary, mb: 3 }}>
+            No customer is currently loaded. Please load a customer first to view their profile and details.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            onClick={() => navigate('/')}
+            sx={{
+              textTransform: 'none',
+              fontSize: '1rem',
+              fontWeight: 600,
+            }}
+          >
+            Load Customer
+          </Button>
+        </Box>
       </Box>
     );
   }

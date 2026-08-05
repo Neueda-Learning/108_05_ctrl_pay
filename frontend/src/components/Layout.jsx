@@ -64,14 +64,13 @@ const menuSections = [
       { label: 'Home',            icon: DashboardIcon,      path: '/'                },
     ],
   },
-   {
-     label: 'CUSTOMERS',
-     items: [
-       { label: 'Create Customer', icon: PersonAddIcon,      path: '/customers/new'   },
-       { label: 'Create Account',  icon: CreditCardIcon,     path: '/accounts/new'    },
-       { label: 'View Profile',    icon: PersonIcon,         path: '/profile'         },
-     ],
-   },
+    {
+      label: 'CUSTOMERS',
+      items: [
+        { label: 'Create Customer', icon: PersonAddIcon,      path: '/customers/new'   },
+        { label: 'Create Account',  icon: CreditCardIcon,     path: '/accounts/new'    },
+      ],
+    },
   {
     label: 'PAYMENTS',
     items: [
@@ -287,80 +286,6 @@ function Layout({ children }) {
       <Box sx={{ flexGrow: 1 }} />
 
 
-      <Divider sx={{ borderColor: alpha(custom.border, 0.75), mx: 1.5, mb: 1.5 }} />
-
-
-      {/* user profile */}
-      <Box sx={{ px: 1 }}>
-        <Box
-          sx={{
-            display:        'flex',
-            alignItems:     'center',
-            gap:            1.5,
-            p:              1.5,
-            borderRadius:   '12px',
-            background:     custom.mutedOverlay,
-            border:         `1px solid ${alpha(custom.border, 0.8)}`,
-            transition:     'background 0.2s ease',
-            justifyContent: open ? 'flex-start' : 'center',
-            '&:hover':      { background: alpha(custom.text.primary, 0.08) },
-          }}
-        >
-          <Avatar
-            sx={{
-              width:      36,
-              height:     36,
-              flexShrink: 0,
-              background: `linear-gradient(135deg, ${custom.brand.main} 0%, ${custom.brand.accent} 100%)`,
-              fontSize:   '0.9rem',
-              fontWeight: 700,
-              boxShadow:  `0 2px 10px ${alpha(custom.brand.main, 0.5)}`,
-            }}
-          >
-            {customer?.name?.[0]?.toUpperCase() || 'U'}
-          </Avatar>
-
-          {open && (
-            <>
-              <Box sx={{ flex: 1, minWidth: 0 }}>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    fontWeight:   600,
-                    color:        custom.text.primary,
-                    whiteSpace:   'nowrap',
-                    overflow:     'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize:     '0.825rem',
-                  }}
-                >
-                  {customer?.name || 'Guest User'}
-                </Typography>
-                <Typography variant="caption" sx={{ color: custom.text.muted, fontSize: '0.7rem' }}>
-                  {customerId ? `ID: ${customerId}` : 'No customer selected'}
-                </Typography>
-              </Box>
-
-              {customerId && (
-                <Tooltip title="Clear Customer">
-                  <IconButton
-                    size="small"
-                    onClick={handleClearCustomer}
-                    sx={{
-                      color:      custom.text.muted,
-                      flexShrink: 0,
-                      '&:hover':  { color: theme.palette.error.main, background: alpha(theme.palette.error.main, 0.12) },
-                    }}
-                  >
-                    <LogoutIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </>
-          )}
-        </Box>
-      </Box>
-
     </Box>
   );
 
@@ -505,19 +430,35 @@ function Layout({ children }) {
 
             <ThemeToggle />
 
-            <Typography variant="body2" sx={{ color: alpha(custom.text.primary, 0.78) }}>
-              {customerId ? `Customer: ${customerId}` : 'No customer selected'}
-            </Typography>
-
-            {customer && (
-              <Typography variant="body2" sx={{ color: alpha(custom.text.primary, 0.62) }}>
-                {customer.name}
-              </Typography>
-            )}
-
-            {customerId && (
-              <Button variant="outlined" color="inherit" size="small" onClick={handleClearCustomer}>
-                Clear Customer
+            {customerId ? (
+              <Tooltip title="View Profile">
+                <IconButton
+                  onClick={() => navigate('/profile')}
+                  sx={{
+                    color: custom.text.primary,
+                    '&:hover': {
+                      background: alpha(custom.brand.main, 0.12),
+                    },
+                  }}
+                >
+                  <PersonIcon />
+                </IconButton>
+              </Tooltip>
+            ) : (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => navigate('/')}
+                sx={{
+                  color: custom.text.primary,
+                  borderColor: alpha(custom.text.primary, 0.5),
+                  '&:hover': {
+                    borderColor: custom.text.primary,
+                    background: alpha(custom.brand.main, 0.12),
+                  },
+                }}
+              >
+                Load Customer
               </Button>
             )}
 
