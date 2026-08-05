@@ -117,6 +117,23 @@ public class GlobalExceptionHandler {
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
+
+    /**
+     * Handle receipt access denials (403 Forbidden).
+     */
+    @ExceptionHandler(ReceiptAccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleReceiptAccessDeniedException(
+        ReceiptAccessDeniedException ex,
+        WebRequest request
+    ) {
+        ErrorResponse response = ErrorResponse.of(
+            "RECEIPT_ACCESS_DENIED",
+            ex.getMessage(),
+            HttpStatus.FORBIDDEN.value(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+    }
     
     /**
      * Handle PaymentProcessingException (500 Internal Server Error).
