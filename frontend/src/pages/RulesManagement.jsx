@@ -23,6 +23,7 @@ import {
   TableHead,
   TableRow,
   MenuItem,
+  useTheme,
 } from '@mui/material';
 import {
   Add,
@@ -42,18 +43,48 @@ const RULE_TYPES = [
   { id: 'MOCK_SUFFICIENT_FUNDS', name: 'Mock Sufficient Funds', icon: '🏦' },
 ];
 
+// JSON Schema placeholders for each rule type
+const JSON_SCHEMA_EXAMPLES = {
+  CURRENCY_WHITELIST: {
+    type: 'CURRENCY_WHITELIST',
+    allowed_currencies: ['USD', 'EUR', 'GBP', 'JPY'],
+    message: 'Currency is not supported',
+  },
+  AMOUNT_RANGE: {
+    type: 'AMOUNT_RANGE',
+    min: 0.01,
+    max: 1000000.00,
+    message: 'Amount must be between $0.01 and $1,000,000',
+  },
+  ACCOUNT_FORMAT: {
+    type: 'ACCOUNT_FORMAT',
+    pattern: '^[0-9]{12}$',
+    message: 'Account number must be exactly 12 digits',
+  },
+  ACCOUNT_DIFFERENCE: {
+    type: 'ACCOUNT_DIFFERENCE',
+    message: 'Source and destination accounts must be different',
+  },
+  MOCK_SUFFICIENT_FUNDS: {
+    type: 'SUFFICIENT_FUNDS',
+    message: 'Insufficient funds in source account',
+  },
+};
+
 function RulesManagement() {
+  const theme = useTheme();
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingRule, setEditingRule] = useState(null);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    type: '',
-    enabled: true,
-    definition: {},
-  });
+   const [formData, setFormData] = useState({
+     name: '',
+     description: '',
+     ruleType: '',
+     severity: 'MEDIUM',
+     orderOfExecution: 1,
+     ruleDefinition: '',
+   });
 
   useEffect(() => {
     fetchRules();
@@ -72,67 +103,69 @@ function RulesManagement() {
     }
   };
 
-  const handleOpenDialog = (rule = null) => {
-    if (rule) {
-      setEditingRule(rule);
-      setFormData({
-        name: rule.name,
-        description: rule.description || '',
-        ruleType: rule.ruleType,
-        severity: rule.severity || 'MEDIUM',
-        orderOfExecution: rule.orderOfExecution || 1,
-        ruleDefinition: rule.ruleDefinition || {},
-      });
-    } else {
-      setEditingRule(null);
-      setFormData({
-        name: '',
-        description: '',
-        ruleType: '',
-        severity: 'MEDIUM',
-        orderOfExecution: 1,
-        ruleDefinition: {},
-      });
-    }
-    setOpenDialog(true);
-  };
+   const handleOpenDialog = (rule = null) => {
+     if (rule) {
+       setEditingRule(rule);
+       setFormData({
+         name: rule.name,
+         description: rule.description || '',
+         ruleType: rule.ruleType,
+         severity: rule.severity || 'MEDIUM',
+         orderOfExecution: rule.orderOfExecution || 1,
+         ruleDefinition: typeof rule.ruleDefinition === 'string'
+           ? rule.ruleDefinition
+           : JSON.stringify(rule.ruleDefinition || {}, null, 2),
+       });
+     } else {
+       setEditingRule(null);
+       setFormData({
+         name: '',
+         description: '',
+         ruleType: '',
+         severity: 'MEDIUM',
+         orderOfExecution: 1,
+         ruleDefinition: '',
+       });
+     }
+     setOpenDialog(true);
+   };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
     setEditingRule(null);
   };
 
-   const handleSaveRule = async () => {
-     try {
-       if (!formData.name || !formData.ruleType) {
-         toast.error('Please fill in all required fields');
-         return;
-       }
+    const handleSaveRule = async () => {
+      try {
+        if (!formData.name || !formData.ruleType) {
+          toast.error('Please fill in all required fields');
+          return;
+        }
 
-       const requestData = {
-         name: formData.name,
-         description: formData.description,
-         ruleType: formData.ruleType,
-         severity: formData.severity || 'MEDIUM',
-         orderOfExecution: formData.orderOfExecution || 1,
-         ruleDefinition: formData.ruleDefinition || {},
-       };
+        const requestData = {
+          name: formData.name,
+          description: formData.description,
+          ruleType: formData.ruleType,
+          severity: formData.severity || 'MEDIUM',
+          orderOfExecution: formData.orderOfExecution || 1,
+          ruleDefinition: formData.ruleDefinition || '',
+        };
 
-       if (editingRule) {
-         await rulesAPI.updateRule(editingRule.id, requestData);
-         toast.success('Rule updated successfully');
-       } else {
-         await rulesAPI.createRule(requestData);
-         toast.success('Rule created successfully');
-       }
+        if (editingRule) {
+          await rulesAPI.updateRule(editingRule.id, requestData);
+          toast.success('Rule updated successfully');
+        } else {
+          await rulesAPI.createRule(requestData);
+          toast.success('Rule created successfully');
+        }
 
-       handleCloseDialog();
-       fetchRules();
-     } catch (error) {
-       console.error('Error saving rule:', error);
-       toast.error(error.response?.data?.message || 'Error saving rule');
-     }
-   };
+        handleCloseDialog();
+        fetchRules();
+      } catch (error) {
+        console.error('Error saving rule:', error);
+        toast.error(error.response?.data?.message || 'Error saving rule');
+      }
+    };
 
   const handleDeleteRule = async (ruleId) => {
     if (window.confirm('Are you sure you want to delete this rule?')) {
@@ -157,10 +190,16 @@ function RulesManagement() {
     }
   };
 
-  const getRuleTypeLabel = (typeId) => {
-    const rule = RULE_TYPES.find((r) => r.id === typeId);
-    return rule ? `${rule.icon} ${rule.name}` : typeId;
-  };
+   const getRuleTypeLabel = (typeId) => {
+     const rule = RULE_TYPES.find((r) => r.id === typeId);
+     return rule ? `${rule.icon} ${rule.name}` : typeId;
+   };
+
+   const getJsonSchemaExample = () => {
+     if (!formData.ruleType) return '';
+     const example = JSON_SCHEMA_EXAMPLES[formData.ruleType];
+     return JSON.stringify(example, null, 2);
+   };
 
   if (loading) {
     return (
@@ -254,83 +293,121 @@ function RulesManagement() {
         </TableContainer>
       </Card>
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingRule ? 'Edit Rule' : 'Create New Rule'}
-        </DialogTitle>
-        <DialogContent sx={{ pt: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12}>
-              <TextField
-                label="Rule Name"
-                fullWidth
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                placeholder="e.g., USD Currency Only"
-              />
-            </Grid>
+       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
+         <DialogTitle>
+           {editingRule ? 'Edit Rule' : 'Create New Rule'}
+         </DialogTitle>
+         <DialogContent sx={{ pt: 2 }}>
+           <Grid container spacing={2}>
              <Grid item xs={12}>
                <TextField
-                 label="Rule Type"
-                 select
+                 label="Rule Name"
                  fullWidth
-                 value={formData.ruleType}
-                 onChange={(e) => setFormData({ ...formData, ruleType: e.target.value })}
-               >
-                 {RULE_TYPES.map((type) => (
-                   <MenuItem key={type.id} value={type.id}>
-                     {type.icon} {type.name}
-                   </MenuItem>
-                 ))}
-               </TextField>
-             </Grid>
-             <Grid item xs={12}>
-               <TextField
-                 label="Description"
-                 fullWidth
-                 multiline
-                 rows={3}
-                 value={formData.description}
-                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                 placeholder="Optional description of this rule"
+                 value={formData.name}
+                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                 placeholder="e.g., USD Currency Only"
                />
              </Grid>
-             <Grid item xs={12}>
-               <TextField
-                 label="Severity"
-                 select
-                 fullWidth
-                 value={formData.severity || 'MEDIUM'}
-                 onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
-               >
-                 <MenuItem value="LOW">Low</MenuItem>
-                 <MenuItem value="MEDIUM">Medium</MenuItem>
-                 <MenuItem value="HIGH">High</MenuItem>
-                 <MenuItem value="CRITICAL">Critical</MenuItem>
-               </TextField>
-             </Grid>
-             <Grid item xs={12}>
-               <TextField
-                 label="Order of Execution"
-                 type="number"
-                 fullWidth
-                 value={formData.orderOfExecution || 1}
-                 onChange={(e) => setFormData({ ...formData, orderOfExecution: parseInt(e.target.value) })}
-                 inputProps={{ min: 1 }}
-               />
-             </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ p: 2 }}>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveRule}
-          >
-            Save Rule
-          </Button>
-        </DialogActions>
-      </Dialog>
+              <Grid item xs={12}>
+                <TextField
+                  label="Rule Type"
+                  select
+                  fullWidth
+                  value={formData.ruleType}
+                  onChange={(e) => setFormData({ ...formData, ruleType: e.target.value })}
+                >
+                  {RULE_TYPES.map((type) => (
+                    <MenuItem key={type.id} value={type.id}>
+                      {type.icon} {type.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Description"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Optional description of this rule"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Severity"
+                  select
+                  fullWidth
+                  value={formData.severity || 'MEDIUM'}
+                  onChange={(e) => setFormData({ ...formData, severity: e.target.value })}
+                >
+                  <MenuItem value="LOW">Low</MenuItem>
+                  <MenuItem value="MEDIUM">Medium</MenuItem>
+                  <MenuItem value="HIGH">High</MenuItem>
+                  <MenuItem value="CRITICAL">Critical</MenuItem>
+                </TextField>
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  label="Order of Execution"
+                  type="number"
+                  fullWidth
+                  value={formData.orderOfExecution || 1}
+                  onChange={(e) => setFormData({ ...formData, orderOfExecution: parseInt(e.target.value) })}
+                  inputProps={{ min: 1 }}
+                />
+              </Grid>
+               <Grid item xs={12}>
+                 <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+                   Rule Definition (JSON)
+                 </Typography>
+                 <TextField
+                   fullWidth
+                   multiline
+                   rows={8}
+                   value={formData.ruleDefinition}
+                   onChange={(e) => setFormData({ ...formData, ruleDefinition: e.target.value })}
+                   placeholder={formData.ruleType ? getJsonSchemaExample() : 'Select a rule type to see example...'}
+                   sx={{
+                     fontFamily: 'monospace',
+                     fontSize: '0.85rem',
+                     backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                     '& .MuiInputBase-input': {
+                       color: theme.palette.mode === 'dark' ? '#e0e0e0' : '#333',
+                       fontFamily: 'monospace',
+                     },
+                   }}
+                 />
+                 {formData.ruleType && (
+                   <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                     📋 Example for {getRuleTypeLabel(formData.ruleType)}:<br />
+                     <code style={{
+                       fontSize: '0.75rem',
+                       backgroundColor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#f0f0f0',
+                       color: theme.palette.mode === 'dark' ? '#b0b0b0' : '#333',
+                       padding: '4px',
+                       borderRadius: '3px',
+                       display: 'inline-block',
+                       marginTop: '4px',
+                     }}>
+                       {getJsonSchemaExample()}
+                     </code>
+                   </Typography>
+                 )}
+               </Grid>
+           </Grid>
+         </DialogContent>
+         <DialogActions sx={{ p: 2 }}>
+           <Button onClick={handleCloseDialog}>Cancel</Button>
+           <Button
+             variant="contained"
+             onClick={handleSaveRule}
+           >
+             Save Rule
+           </Button>
+         </DialogActions>
+       </Dialog>
     </Box>
   );
 }

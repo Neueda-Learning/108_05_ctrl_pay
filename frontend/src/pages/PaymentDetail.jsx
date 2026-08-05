@@ -83,6 +83,28 @@ function PaymentDetail() {
   const isHighRisk = fraudProbability !== null && Number(fraudProbability) >= 80;
   const isSuspicious = payment?.status === 'SUSPICIOUS';
 
+  // Construct complete history with synthesized SENT→COMPLETED transition
+  const getCompleteHistory = () => {
+    if (!history || history.length === 0) return [];
+
+    let displayHistory = [...history];
+
+    // If payment is COMPLETED but last history entry is SENT, add synthetic SENT→COMPLETED transition
+    if (payment?.status === 'COMPLETED' && displayHistory.length > 0) {
+      const lastEntry = displayHistory[displayHistory.length - 1];
+      if (lastEntry.newStatus === 'SENT') {
+        // Add synthesized SENT→COMPLETED transition with timestamp
+        displayHistory.push({
+          oldStatus: 'SENT',
+          newStatus: 'COMPLETED',
+          timestamp: payment.updatedAt || new Date().toISOString(),
+        });
+      }
+    }
+
+    return displayHistory;
+  };
+
   const handleFraudApprove = async () => {
     try {
       setFraudAction('approving');
@@ -318,64 +340,67 @@ function PaymentDetail() {
                   <Chip label="High Risk Transaction" size="small" color="error" variant="outlined" />
                 )}
               </Box>
-              {history && history.length > 0 ? (
-                <Stack spacing={2}>
-                  {history.map((item, idx) => (
-                    <Box
-                      key={idx}
-                      sx={{
-                        display: 'flex',
-                        gap: 2,
-                        pb: idx < history.length - 1 ? 2 : 0,
-                        borderBottom: idx < history.length - 1
-                          ? isHighRisk
-                            ? '1px solid rgba(239,68,68,0.25)'
-                            : `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
-                          : 'none',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <Box
-                          sx={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: '50%',
-                            backgroundColor: item.newStatus === 'COMPLETED' ? 'success.lighter' : 'info.lighter',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            color: item.newStatus === 'COMPLETED' ? 'success.main' : 'info.main',
-                          }}
-                        >
-                          <CheckCircle sx={{ fontSize: 24 }} />
-                        </Box>
-                        {idx < history.length - 1 && (
+              {(() => {
+                const completeHistory = getCompleteHistory();
+                return completeHistory && completeHistory.length > 0 ? (
+                  <Stack spacing={2}>
+                    {completeHistory.map((item, idx) => (
+                      <Box
+                        key={idx}
+                        sx={{
+                          display: 'flex',
+                          gap: 2,
+                          pb: idx < completeHistory.length - 1 ? 2 : 0,
+                          borderBottom: idx < completeHistory.length - 1
+                            ? isHighRisk
+                              ? '1px solid rgba(239,68,68,0.25)'
+                              : `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
+                            : 'none',
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                           <Box
                             sx={{
-                              width: 2,
-                              height: 20,
-                              backgroundColor: alpha(theme.palette.primary.main, 0.35),
-                              mt: 1,
+                              width: 40,
+                              height: 40,
+                              borderRadius: '50%',
+                              backgroundColor: item.newStatus === 'COMPLETED' ? 'success.lighter' : 'info.lighter',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: item.newStatus === 'COMPLETED' ? 'success.main' : 'info.main',
                             }}
-                          />
-                        )}
+                          >
+                            <CheckCircle sx={{ fontSize: 24 }} />
+                          </Box>
+                          {idx < completeHistory.length - 1 && (
+                            <Box
+                              sx={{
+                                width: 2,
+                                height: 20,
+                                backgroundColor: alpha(theme.palette.primary.main, 0.35),
+                                mt: 1,
+                              }}
+                            />
+                          )}
+                        </Box>
+                        <Box sx={{ pt: 0.5, flex: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                            {item.oldStatus} → {item.newStatus}
+                          </Typography>
+                          <Typography variant="caption" color="textSecondary">
+                            {format(new Date(item.timestamp), 'MMM dd, yyyy HH:mm:ss')}
+                          </Typography>
+                        </Box>
                       </Box>
-                      <Box sx={{ pt: 0.5, flex: 1 }}>
-                        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-                          {item.oldStatus} → {item.newStatus}
-                        </Typography>
-                        <Typography variant="caption" color="textSecondary">
-                          {format(new Date(item.timestamp), 'MMM dd, yyyy HH:mm:ss')}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))}
-                </Stack>
-              ) : (
-                <Typography variant="body2" color="textSecondary">
-                  No status history available
-                </Typography>
-              )}
+                    ))}
+                  </Stack>
+                ) : (
+                  <Typography variant="body2" color="textSecondary">
+                    No status history available
+                  </Typography>
+                );
+              })()}
             </CardContent>
           </Card>
         </Grid>

@@ -23,6 +23,7 @@ import {
   TableHead,
   TableRow,
   MenuItem,
+  useTheme,
 } from '@mui/material';
 import {
   Add,
@@ -42,7 +43,43 @@ const RULE_TYPES = [
   { id: 'ANOMALY', name: 'Anomaly', icon: '⚠️' },
 ];
 
+// JSON Schema placeholders for each fraud rule type
+const JSON_SCHEMA_EXAMPLES = {
+  THRESHOLD: {
+    type: 'THRESHOLD',
+    threshold: 10000,
+    percentage: 80,
+    message: 'Transaction exceeds threshold limit',
+  },
+  PATTERN: {
+    type: 'PATTERN',
+    pattern: 'circular_flow',
+    description: 'Detect A→B→C→A circular fund flow',
+    message: 'Suspicious circular transaction pattern detected',
+  },
+  BEHAVIOR: {
+    type: 'BEHAVIOR',
+    baseline: 'historical_average',
+    deviation_threshold: 3,
+    message: 'Behavior deviates from baseline patterns',
+  },
+  VELOCITY: {
+    type: 'VELOCITY',
+    transactions_per_minute: 5,
+    transactions_per_hour: 20,
+    transactions_per_day: 100,
+    message: 'Transaction velocity exceeds limits',
+  },
+  ANOMALY: {
+    type: 'ANOMALY',
+    days_since_account_open: 30,
+    confidence_score: 75,
+    message: 'Anomalous transaction detected by ML model',
+  },
+};
+
 function FraudRulesManagement() {
+  const theme = useTheme();
   const [rules, setRules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
@@ -189,20 +226,26 @@ function FraudRulesManagement() {
     return rule ? `${rule.icon} ${rule.name}` : typeId;
   };
 
-  const getSeverityColor = (severity) => {
-    switch (severity) {
-      case 'CRITICAL':
-        return 'error';
-      case 'HIGH':
-        return 'warning';
-      case 'MEDIUM':
-        return 'info';
-      case 'LOW':
-        return 'success';
-      default:
-        return 'default';
-    }
-  };
+   const getSeverityColor = (severity) => {
+     switch (severity) {
+       case 'CRITICAL':
+         return 'error';
+       case 'HIGH':
+         return 'warning';
+       case 'MEDIUM':
+         return 'info';
+       case 'LOW':
+         return 'success';
+       default:
+         return 'default';
+     }
+   };
+
+   const getJsonSchemaExample = () => {
+     if (!formData.ruleType) return '';
+     const example = JSON_SCHEMA_EXAMPLES[formData.ruleType];
+     return JSON.stringify(example, null, 2);
+   };
 
   if (loading) {
     return (
@@ -393,28 +436,66 @@ function FraudRulesManagement() {
                 helperText="Weight in fraud score calculation (0.1 - 10.0)"
               />
             </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Rule Definition (JSON)"
-                fullWidth
-                multiline
-                rows={2}
-                value={formData.ruleDefinitionJson}
-                onChange={(e) => setFormData({ ...formData, ruleDefinitionJson: e.target.value })}
-                placeholder='{"threshold": 5000, "condition": "gt"}'
-              />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField
-                label="Triggering Conditions (JSON)"
-                fullWidth
-                multiline
-                rows={2}
-                value={formData.triggeringConditionsJson}
-                onChange={(e) => setFormData({ ...formData, triggeringConditionsJson: e.target.value })}
-                placeholder='{"field": "amount", "operator": ">=", "value": 5000}'
-              />
-            </Grid>
+             <Grid item xs={12}>
+               <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+                 Rule Definition (JSON)
+               </Typography>
+               <TextField
+                 fullWidth
+                 multiline
+                 rows={8}
+                 value={formData.ruleDefinitionJson}
+                 onChange={(e) => setFormData({ ...formData, ruleDefinitionJson: e.target.value })}
+                 placeholder={formData.ruleType ? getJsonSchemaExample() : 'Select a rule type to see example...'}
+                 sx={{
+                   fontFamily: 'monospace',
+                   fontSize: '0.85rem',
+                   backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                   '& .MuiInputBase-input': {
+                     color: theme.palette.mode === 'dark' ? '#e0e0e0' : '#333',
+                     fontFamily: 'monospace',
+                   },
+                 }}
+               />
+               {formData.ruleType && (
+                 <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+                   📋 Example for {getRuleTypeLabel(formData.ruleType)}:<br />
+                   <code style={{
+                     fontSize: '0.75rem',
+                     backgroundColor: theme.palette.mode === 'dark' ? '#1a1a1a' : '#f0f0f0',
+                     color: theme.palette.mode === 'dark' ? '#b0b0b0' : '#333',
+                     padding: '4px',
+                     borderRadius: '3px',
+                     display: 'inline-block',
+                     marginTop: '4px',
+                   }}>
+                     {getJsonSchemaExample()}
+                   </code>
+                 </Typography>
+               )}
+             </Grid>
+             <Grid item xs={12}>
+               <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+                 Triggering Conditions (JSON)
+               </Typography>
+               <TextField
+                 fullWidth
+                 multiline
+                 rows={6}
+                 value={formData.triggeringConditionsJson}
+                 onChange={(e) => setFormData({ ...formData, triggeringConditionsJson: e.target.value })}
+                 placeholder='{"field": "amount", "operator": ">=", "value": 5000}'
+                 sx={{
+                   fontFamily: 'monospace',
+                   fontSize: '0.85rem',
+                   backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : '#f5f5f5',
+                   '& .MuiInputBase-input': {
+                     color: theme.palette.mode === 'dark' ? '#e0e0e0' : '#333',
+                     fontFamily: 'monospace',
+                   },
+                 }}
+               />
+             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
