@@ -50,14 +50,15 @@ COPY --from=builder --chown=appuser:appgroup /build/target/ctrl_pay-*.jar /app/a
 USER appuser
 
 # Expose application port
-EXPOSE 8080
+EXPOSE 8082
 
 # Health check endpoint
 HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8080/actuator/health/liveness || exit 1
+    CMD curl -f http://localhost:8082/actuator/health/liveness || exit 1
 
 # Environment variables (can be overridden at runtime)
 ENV SPRING_PROFILES_ACTIVE=docker \
+    SERVER_PORT=8082 \
     JAVA_OPTS="-Xmx512m -Xms256m"
 
 # Run the application
