@@ -86,29 +86,16 @@ const menuSections = [
       { label: 'Statistics',      icon: TrendingUpIcon,     path: '/statistics'      },
     ],
   },
- {
+  {
     label: 'TOOLS',
     items: [
       { label: 'Lifecycle Simulator', icon: PlayCircleIcon,  path: '/simulator'       },
     ],
   },
   {
-    label: 'FRAUD',
-    items: [
-      { label: 'Fraud Dashboard', icon: SecurityIcon,       path: '/fraud'           },
-      { label: 'Fraud Rules',     icon: ManageAccountsIcon, path: '/fraud-rules'     },
-    ],
-  },
-{
     label: 'AI',
     items: [
       { label: 'AI Copilot',       icon: PsychologyIcon,     path: '#copilot'         },
-    ],
-  },
-  {
-    label: 'SYSTEM',
-    items: [
-      { label: 'Validation Rules', icon: ManageAccountsIcon, path: '/rules'           },
     ],
   },
 ];
@@ -118,6 +105,7 @@ function Layout({ children }) {
 
   const [open, setOpen] = useState(true);
   const [dashboardMenuAnchor, setDashboardMenuAnchor] = useState(null);
+  const [rulesMenuAnchor, setRulesMenuAnchor] = useState(null);
 
   const location = useLocation();
   const navigate = useNavigate();
@@ -145,6 +133,19 @@ function Layout({ children }) {
     handleDashboardMenuClose();
   };
 
+  const handleFraudRulesMenuOpen = (event) => {
+    setRulesMenuAnchor(event.currentTarget);
+  };
+
+  const handleFraudRulesMenuClose = () => {
+    setRulesMenuAnchor(null);
+  };
+
+  const handleFraudRulesNavigation = (path) => {
+    navigate(path);
+    handleFraudRulesMenuClose();
+  };
+
   const dashboardMenuItems = [
     { label: 'Platform Overview', icon: DashboardIcon, path: '/dashboard/overview' },
     { label: 'Transactions', icon: BarChartIcon, path: '/dashboard/transactions' },
@@ -154,6 +155,11 @@ function Layout({ children }) {
     { label: 'ML Model', icon: SmartToyIcon, path: '/dashboard/ml' },
     { label: 'Compliance', icon: GavelIcon, path: '/dashboard/compliance' },
   ];
+
+   const rulesMenuItems = [
+     { label: 'Fraud Detection Rules', icon: ManageAccountsIcon, path: '/fraud-rules' },
+     { label: 'Validation Rules', icon: ManageAccountsIcon, path: '/rules' },
+   ];
 
 
   /* ── nav item ───────────────────────────────────────────────────── */
@@ -420,6 +426,77 @@ function Layout({ children }) {
                   <MenuItem
                     key={item.path}
                     onClick={() => handleDashboardNavigation(item.path)}
+                    sx={{
+                      color: custom.text.secondary,
+                      '&:hover': {
+                        background: alpha(custom.brand.main, 0.12),
+                        color: custom.text.primary,
+                      },
+                    }}
+                  >
+                    <IconComponent sx={{ mr: 1.5, fontSize: '1.2rem' }} />
+                    {item.label}
+                  </MenuItem>
+                );
+              })}
+            </Menu>
+
+            {/* Review Halted Payments Button */}
+            <Button
+              color="inherit"
+              onClick={() => navigate('/fraud')}
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: custom.text.primary,
+                '&:hover': {
+                  background: alpha(custom.brand.main, 0.12),
+                },
+              }}
+            >
+              Review Halted Payments
+            </Button>
+
+            {/* Rules Dropdown */}
+            <Button
+              color="inherit"
+              onClick={handleFraudRulesMenuOpen}
+              endIcon={<KeyboardArrowDownIcon />}
+              sx={{
+                textTransform: 'none',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                color: custom.text.primary,
+                '&:hover': {
+                  background: alpha(custom.brand.main, 0.12),
+                },
+              }}
+            >
+              Rules
+            </Button>
+
+            <Menu
+              anchorEl={rulesMenuAnchor}
+              open={Boolean(rulesMenuAnchor)}
+              onClose={handleFraudRulesMenuClose}
+              sx={{
+                '& .MuiPaper-root': {
+                  background: custom.drawer,
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: `1px solid ${alpha(custom.border, 0.8)}`,
+                  borderRadius: '12px',
+                  mt: 1,
+                },
+              }}
+            >
+              {rulesMenuItems.map((item) => {
+                const IconComponent = item.icon;
+                return (
+                  <MenuItem
+                    key={item.path}
+                    onClick={() => handleFraudRulesNavigation(item.path)}
                     sx={{
                       color: custom.text.secondary,
                       '&:hover': {

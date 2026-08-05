@@ -176,7 +176,7 @@ const FraudDetailDialog = ({ open, paymentId, onClose, onAction }) => {
 };
 
 // ── main page ─────────────────────────────────────────────────────────────────
-export default function FraudDashboard() {
+export default function ReviewHaltedPayments() {
   const [stats, setStats] = useState(null);
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -220,7 +220,7 @@ export default function FraudDashboard() {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Box>
-          <Typography variant="h4" sx={{ color: '#E2E8F0', fontWeight: 700 }}>🛡️ Fraud Dashboard</Typography>
+          <Typography variant="h4" sx={{ color: '#E2E8F0', fontWeight: 700 }}>⏸️ Review Halted Payments</Typography>
           <Typography variant="body2" sx={{ color: '#64748B', mt: 0.5 }}>
             Review and manage suspicious payments flagged by the fraud detection engine
           </Typography>
