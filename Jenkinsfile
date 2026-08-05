@@ -45,7 +45,25 @@ fi
             steps {
                 dir('ml_fraud-detection/payment-fraud-detection-main') {
                     sh '''#!/bin/sh
-docker run --rm -v "$PWD":/app -w /app python:3.11-slim sh -lc "pip install -r requirements.txt && python -u -c 'import pickle, xgboost, sklearn, numpy, pandas' && python -u -c 'from pathlib import Path; p=Path(\"XGBoostModel.pkl\"); assert p.exists(), \"XGBoostModel.pkl not found\"; pickle.load(p.open(\"rb\")); print(\"Model loaded\")'"
+docker run --rm -v "$PWD":/app -w /app python:3.11-slim sh -lc '
+pip install -r requirements.txt
+python -u - <<"PY"
+import pickle
+import xgboost  # noqa: F401
+import sklearn  # noqa: F401
+import numpy    # noqa: F401
+import pandas   # noqa: F401
+from pathlib import Path
+
+model_path = Path("XGBoostModel.pkl")
+assert model_path.exists(), "XGBoostModel.pkl not found"
+
+with model_path.open("rb") as f:
+    pickle.load(f)
+
+print("Model loaded")
+PY
+'
 '''
                 }
             }
