@@ -698,6 +698,18 @@ function CreatePayment() {
                           </Typography>
                         </Grid>
 
+                        <Grid item xs={12} sm={6}>
+                          <Typography
+                            variant="caption"
+                            color="textSecondary"
+                          >
+                            Account Holder Name
+                          </Typography>
+                          <Typography variant="body1" sx={{ fontWeight: 500 }}>
+                            {destinationAccountData?.accountName || '-'}
+                          </Typography>
+                        </Grid>
+
                         <Grid item xs={12}>
                           <Divider />
                         </Grid>

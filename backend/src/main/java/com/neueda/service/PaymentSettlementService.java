@@ -13,10 +13,12 @@ import org.springframework.transaction.annotation.Transactional;
 import com.neueda.domain.AccountRecord;
 import com.neueda.domain.PaymentRecord;
 import com.neueda.domain.PaymentStatus;
+import com.neueda.domain.PaymentStatusHistoryRecord;
 import com.neueda.dto.CurrencyConversionRequest;
 import com.neueda.dto.CurrencyConversionResponse;
 import com.neueda.repository.AccountRepository;
 import com.neueda.repository.PaymentRepository;
+import com.neueda.repository.PaymentStatusHistoryRepository;
 
 /**
  * Payment Settlement Service - Handles real account debit/credit operations.
@@ -44,15 +46,18 @@ public class PaymentSettlementService {
     private final PaymentRepository paymentRepository;
     private final AccountRepository accountRepository;
     private final CurrencyConversionService currencyConversionService;
+    private final PaymentStatusHistoryRepository paymentStatusHistoryRepository;
     
     public PaymentSettlementService(
         PaymentRepository paymentRepository,
         AccountRepository accountRepository,
-        CurrencyConversionService currencyConversionService
+        CurrencyConversionService currencyConversionService,
+        PaymentStatusHistoryRepository paymentStatusHistoryRepository
     ) {
         this.paymentRepository = paymentRepository;
         this.accountRepository = accountRepository;
         this.currencyConversionService = currencyConversionService;
+        this.paymentStatusHistoryRepository = paymentStatusHistoryRepository;
     }
     
     /**
@@ -173,6 +178,17 @@ public class PaymentSettlementService {
                 exchangeRate           // exchangeRate - the rate used for conversion
             );
             paymentRepository.update(settledPayment);
+            
+            // Log status transition to history (SENT → COMPLETED)
+            paymentStatusHistoryRepository.save(
+                PaymentStatusHistoryRecord.transition(
+                    paymentId,
+                    PaymentStatus.SENT,
+                    PaymentStatus.COMPLETED,
+                    "SETTLEMENT"
+                )
+            );
+            
             logger.info("Payment {} successfully settled. Source: {} {}, Destination: {} {}, Rate: {}. Accounts updated, payment marked COMPLETED.",
                 paymentId, payment.amount(), payment.currency(), destinationAmount, destinationAccount.currency(), exchangeRate);
             

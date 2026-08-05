@@ -148,6 +148,27 @@ export const adminFraudAPI = {
   refreshAccountRisk: (accountNumber) => apiClient.post(`/admin/fraud/account/${accountNumber}/refresh-risk`),
 };
 
+// Fraud Rules API
+export const fraudRulesAPI = {
+  // List all fraud rules
+  listRules: () => apiClient.get('/admin/fraud-rules'),
+
+  // Get fraud rule details
+  getRule: (id) => apiClient.get(`/admin/fraud-rules/${id}`),
+
+  // Create new fraud rule
+  createRule: (data) => apiClient.post('/admin/fraud-rules', data),
+
+  // Update fraud rule
+  updateRule: (id, data) => apiClient.put(`/admin/fraud-rules/${id}`, data),
+
+  // Toggle fraud rule status (active/inactive)
+  toggleRule: (id) => apiClient.patch(`/admin/fraud-rules/${id}/toggle`),
+
+  // Delete fraud rule
+  deleteRule: (id) => apiClient.delete(`/admin/fraud-rules/${id}`),
+};
+
 
 // Health API
 export const healthAPI = {

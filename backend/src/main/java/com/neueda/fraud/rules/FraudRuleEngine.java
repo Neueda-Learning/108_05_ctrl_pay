@@ -7,64 +7,60 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import com.neueda.domain.AccountRecord;
+import com.neueda.domain.FraudRuleRecord;
 import com.neueda.domain.PaymentRecord;
+import com.neueda.repository.FraudRuleRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Fraud Rule Engine
- * Executes all registered fraud rules and aggregates their results
+ * Fraud Rule Engine - Enhanced for Dynamic Rule Loading
+ * 
+ * Responsibilities:
+ * 1. Load active fraud rules from database (not hardcoded)
+ * 2. Execute each rule against a payment
+ * 3. Apply rule weights and severity from database
+ * 4. Aggregate results into comprehensive fraud score
+ * 
+ * Key improvement: Rules are now loaded dynamically from database,
+ * allowing compliance/business users to modify rules without code redeployment.
  */
 @Component
 public class FraudRuleEngine {
     
-    private final List<FraudRule> rules;
+    private static final Logger logger = LoggerFactory.getLogger(FraudRuleEngine.class);
+    
+    private final FraudRuleRepository fraudRuleRepository;
+    private final FraudRuleRegistry ruleRegistry;
     private final ObjectMapper objectMapper;
 
     public FraudRuleEngine(
-        LargeTransactionRule largeTransactionRule,
-        ExtremelyLargeTransactionRule extremelyLargeRule,
-        AccountDrainRule accountDrainRule,
-        TransactionVelocityRule velocityRule,
-        BehaviorChangeRule behaviorChangeRule,
-        NewDestinationRule newDestinationRule,
-        MultipleFailureRule multipleFailureRule,
-        SuspiciousAccountRule suspiciousAccountRule,
-        CrossCurrencyRule crossCurrencyRule,
-        MLFraudRule mlFraudRule,
-        // NEW RULES - Phase 1 enhancements
-        UnusualTimePatternRule unusualTimePatternRule,
-        VelocityAnomalyRule velocityAnomalyRule,
-        CyclicalTransactionPatternRule cyclicalPatternRule,
-        BehavioralBaselineRule behavioralBaselineRule,
-        ContextualRiskAggregationRule contextualRiskRule,
+        FraudRuleRepository fraudRuleRepository,
+        FraudRuleRegistry ruleRegistry,
         ObjectMapper objectMapper
     ) {
-        this.rules = List.of(
-            largeTransactionRule,
-            extremelyLargeRule,
-            accountDrainRule,
-            velocityRule,
-            behaviorChangeRule,
-            newDestinationRule,
-            multipleFailureRule,
-            suspiciousAccountRule,
-            crossCurrencyRule,
-            mlFraudRule,
-            // NEW RULES
-            unusualTimePatternRule,
-            velocityAnomalyRule,
-            cyclicalPatternRule,
-            behavioralBaselineRule,
-            contextualRiskRule
-        );
+        this.fraudRuleRepository = fraudRuleRepository;
+        this.ruleRegistry = ruleRegistry;
         this.objectMapper = objectMapper;
+        logger.info("FraudRuleEngine initialized with dynamic rule loading. Registry size: {}", 
+            ruleRegistry.getRegistrySize());
     }
 
     /**
-     * Execute all fraud rules against a payment
+     * Execute all active fraud rules against a payment
+     * 
+     * Process:
+     * 1. Load active fraud rules from database (sorted by order_of_execution)
+     * 2. For each rule:
+     *    - Look up implementation via FraudRuleRegistry
+     *    - Execute rule.evaluate()
+     *    - Apply weight and severity from database
+     * 3. Aggregate weighted results into final fraud score (0-100)
+     * 4. Return comprehensive fraud detection results
      * 
      * @param payment the payment to evaluate
      * @param sourceAccount the source account
@@ -82,44 +78,73 @@ public class FraudRuleEngine {
         List<String> triggeredRuleNames = new ArrayList<>();
         Map<String, RuleScoreDetail> ruleScores = new HashMap<>();
         
-        // Execute each rule
-        for (FraudRule rule : rules) {
+        // Step 1: Load active fraud rules from database (ordered by execution sequence)
+        List<FraudRuleRecord> activeRules = fraudRuleRepository.findAllActive();
+        logger.debug("Evaluating payment {} with {} active fraud rules", payment.id(), activeRules.size());
+        
+        // Step 2: Execute each rule
+        for (FraudRuleRecord ruleRecord : activeRules) {
             try {
-                FraudRuleResult result = rule.evaluate(payment, sourceAccount, destinationAccount);
+                // Look up the rule implementation
+                FraudRule ruleImplementation = ruleRegistry.getRule(ruleRecord.ruleName());
+                
+                if (ruleImplementation == null) {
+                    logger.warn("Fraud rule implementation not found for rule: {}", ruleRecord.ruleName());
+                    ruleScores.put(ruleRecord.ruleName(), new RuleScoreDetail(
+                        ruleRecord.ruleName(),
+                        0,
+                        false,
+                        "Rule implementation not registered: " + ruleRecord.ruleName(),
+                        ruleRecord.weight().doubleValue()
+                    ));
+                    continue;
+                }
+                
+                // Execute the rule
+                FraudRuleResult result = ruleImplementation.evaluate(payment, sourceAccount, destinationAccount);
                 allResults.add(result);
                 
-                double weight = rule.getWeight();
-                totalWeight += weight;
-                weightedScoreSum += result.score() * weight;
+                // Apply weight from database (not from rule's hardcoded weight)
+                double dbWeight = ruleRecord.weight().doubleValue();
+                totalWeight += dbWeight;
+                weightedScoreSum += result.score() * dbWeight;
                 
-                ruleScores.put(rule.getRuleName(), new RuleScoreDetail(
-                    rule.getRuleName(),
+                ruleScores.put(ruleRecord.ruleName(), new RuleScoreDetail(
+                    ruleRecord.ruleName(),
                     result.score(),
                     result.triggered(),
                     result.explanation(),
-                    weight
+                    dbWeight
                 ));
                 
                 if (result.triggered()) {
-                    triggeredRuleNames.add(rule.getRuleName());
+                    triggeredRuleNames.add(ruleRecord.ruleName());
+                    logger.debug("Fraud rule {} triggered for payment {} with score {}", 
+                        ruleRecord.ruleName(), payment.id(), result.score());
                 }
             } catch (Exception e) {
+                logger.error("Error executing fraud rule {} for payment {}: {}", 
+                    ruleRecord.ruleName(), payment.id(), e.getMessage(), e);
+                
                 // Individual rule failure should not crash the entire engine
-                ruleScores.put(rule.getRuleName(), new RuleScoreDetail(
-                    rule.getRuleName(),
+                ruleScores.put(ruleRecord.ruleName(), new RuleScoreDetail(
+                    ruleRecord.ruleName(),
                     0,
                     false,
                     "Rule execution error: " + e.getMessage(),
-                    rule.getWeight()
+                    ruleRecord.weight().doubleValue()
                 ));
             }
         }
         
-        // Calculate final rule score (0-100)
+        // Step 3: Calculate final rule score (0-100)
         double finalRuleScore = totalWeight > 0 ? (weightedScoreSum / totalWeight) : 0;
         
-        // Build explanation
+        // Step 4: Build explanation
         String explanation = buildExplanation(triggeredRuleNames, ruleScores);
+        
+        logger.debug("Payment {} fraud rule evaluation complete. Final score: {}, Triggered rules: {}", 
+            payment.id(), finalRuleScore, triggeredRuleNames);
         
         return new FraudDetectionResult(
             BigDecimal.valueOf(Math.min(100, Math.max(0, finalRuleScore))),
@@ -157,11 +182,21 @@ public class FraudRuleEngine {
         return sb.toString();
     }
 
+    
     /**
-     * Get all registered fraud rules
+     * Get all registered fraud rule names from the registry.
+     * Note: Actual rule instances are now loaded from database on each evaluation.
+     * This method returns only the names of registered implementations.
      */
-    public List<FraudRule> getRules() {
-        return new ArrayList<>(rules);
+    public List<String> getRegisteredRuleNames() {
+        return new ArrayList<>(ruleRegistry.getRegisteredRuleNames());
+    }
+    
+    /**
+     * Get registry size (number of registered rule implementations).
+     */
+    public int getRegistrySize() {
+        return ruleRegistry.getRegistrySize();
     }
     
     /**

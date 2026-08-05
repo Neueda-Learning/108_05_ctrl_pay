@@ -100,14 +100,23 @@ function PaymentsList() {
   const fetchPayments = async () => {
     try {
       setLoading(true);
+
+      // Convert datetime-local format (YYYY-MM-DDTHH:mm) to ISO 8601 format (YYYY-MM-DDTHH:mm:ss)
+      const formatDateToISO8601 = (dateString) => {
+        if (!dateString) return '';
+        // datetime-local format: "2026-07-31T10:30"
+        // ISO 8601 format: "2026-07-31T10:30:00"
+        return dateString.includes('T') ? dateString + ':00' : dateString;
+      };
+
       const params = {
         limit: paginationModel.pageSize,
         offset: paginationModel.page * paginationModel.pageSize,
         ...(filters.status && { status: filters.status }),
         ...(filters.currency && { currency: filters.currency }),
         ...(filters.account && { account: filters.account }),
-        ...(filters.dateFrom && { 'date-from': filters.dateFrom }),
-        ...(filters.dateTo && { 'date-to': filters.dateTo }),
+        ...(filters.dateFrom && { 'date-from': formatDateToISO8601(filters.dateFrom) }),
+        ...(filters.dateTo && { 'date-to': formatDateToISO8601(filters.dateTo) }),
       };
 
       const response = await paymentAPI.listPayments(params);
