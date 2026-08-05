@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 import {
   Box,
   Button,
@@ -10,6 +11,7 @@ import {
   TextField,
   Typography,
   Chip,
+  useTheme,
 } from '@mui/material';
 import { AccountCircle, AddCard, Analytics, ArrowForward, PersonAdd, Security } from '@mui/icons-material';
 import { useCustomer } from '../context/CustomerContext';
@@ -47,6 +49,7 @@ const actionCards = [
 ];
 
 function Dashboard() {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { customer, accounts, loadCustomer, loadingCustomer, clearCustomer } = useCustomer();
   const [customerIdInput, setCustomerIdInput] = useState('');
@@ -142,7 +145,7 @@ function Dashboard() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                      backgroundColor: alpha(theme.palette.primary.main, 0.15),
                       color: 'primary.main',
                     }}
                   >

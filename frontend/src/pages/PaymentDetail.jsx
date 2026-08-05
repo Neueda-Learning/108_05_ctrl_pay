@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 import {
   Alert,
   Box,
@@ -13,6 +14,7 @@ import {
   Divider,
   Stack,
   LinearProgress,
+  useTheme,
 } from '@mui/material';
 import { CheckCircle, Error as ErrorIcon, Security as SecurityIcon } from '@mui/icons-material';
 import { paymentAPI, adminFraudAPI } from '../services/api';
@@ -35,6 +37,7 @@ const statusColors = {
 };
 
 function PaymentDetail() {
+  const theme = useTheme();
   const { id } = useParams();
   const navigate = useNavigate();
   const { customerId } = useCustomer();
@@ -327,7 +330,7 @@ function PaymentDetail() {
                         borderBottom: idx < history.length - 1
                           ? isHighRisk
                             ? '1px solid rgba(239,68,68,0.25)'
-                            : '1px solid rgba(99,102,241,0.15)'
+                            : `1px solid ${alpha(theme.palette.primary.main, 0.2)}`
                           : 'none',
                       }}
                     >
@@ -351,7 +354,7 @@ function PaymentDetail() {
                             sx={{
                               width: 2,
                               height: 20,
-                              backgroundColor: '#1E1B4B',
+                              backgroundColor: alpha(theme.palette.primary.main, 0.35),
                               mt: 1,
                             }}
                           />
@@ -444,9 +447,6 @@ function PaymentDetail() {
                     Retry
                   </Button>
                 )}
-                <Button variant="outlined" fullWidth>
-                  Mark Failed
-                </Button>
               </Box>
 
               {receiptError && (

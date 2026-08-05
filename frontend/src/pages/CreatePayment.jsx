@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { alpha } from '@mui/material/styles';
 import {
   Box,
   Card,
@@ -395,9 +396,9 @@ function CreatePayment() {
                           <Box
                             sx={{
                               p: 2,
-                              border: '1px solid #e0e0e0',
+                              border: (theme) => `1px solid ${theme.palette.divider}`,
                               borderRadius: 1,
-                              backgroundColor: '#f5f5f5',
+                              backgroundColor: (theme) => theme.customTokens.background.secondary,
                             }}
                           >
                             <Typography variant="caption" color="textSecondary">
@@ -443,43 +444,32 @@ function CreatePayment() {
                         />
                       </Grid>
 
-                      {/* Verify & Destination Account Info */}
+                      {/* Destination verification state */}
                       <Grid item xs={12} sm={6}>
-                        {!destinationVerified ? (
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            fullWidth
-                            onClick={() => handleSubmit(onSubmit)()}
-                            disabled={
-                              verifyingDestination ||
-                              !formValues.destinationAccount
-                            }
-                          >
-                            {verifyingDestination ? (
-                              <>
-                                <CircularProgress size={20} sx={{ mr: 1 }} />
-                                Verifying...
-                              </>
-                            ) : (
-                              'Verify Destination'
-                            )}
-                          </Button>
-                        ) : (
+                        {verifyingDestination && (
+                          <Box sx={{ p: 2, textAlign: 'center' }}>
+                            <CircularProgress size={22} />
+                            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                              Verifying destination account...
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {!verifyingDestination && destinationVerified && (
                           <Box
                             sx={{
                               p: 2,
-                              border: '1px solid #4caf50',
+                              border: (theme) => `1px solid ${theme.palette.success.main}`,
                               borderRadius: 1,
-                              backgroundColor: '#e8f5e9',
+                              backgroundColor: (theme) => alpha(theme.palette.success.main, 0.14),
                             }}
                           >
-                            <Typography variant="caption" sx={{ color: '#2e7d32' }}>
+                            <Typography variant="caption" sx={{ color: 'success.main' }}>
                               ✓ Destination Account Verified
                             </Typography>
                             <Typography
                               variant="h6"
-                              sx={{ fontWeight: 700, color: '#2e7d32' }}
+                              sx={{ fontWeight: 700, color: 'success.main' }}
                             >
                               {destinationAccountData?.currency}
                             </Typography>
@@ -487,6 +477,12 @@ function CreatePayment() {
                               {destinationAccountData?.bankName}
                             </Typography>
                           </Box>
+                        )}
+
+                        {!verifyingDestination && !destinationVerified && (
+                          <Typography variant="caption" color="text.secondary">
+                            
+                          </Typography>
                         )}
                       </Grid>
                     </Grid>
@@ -512,9 +508,9 @@ function CreatePayment() {
                         <Box
                           sx={{
                             p: 2,
-                            border: '1px solid #e0e0e0',
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
                             borderRadius: 1,
-                            backgroundColor: '#f5f5f5',
+                            backgroundColor: (theme) => theme.customTokens.background.secondary,
                             mb: 2,
                           }}
                         >
@@ -570,9 +566,9 @@ function CreatePayment() {
                         <Box
                           sx={{
                             p: 2,
-                            border: '1px solid #e0e0e0',
+                            border: (theme) => `1px solid ${theme.palette.divider}`,
                             borderRadius: 1,
-                            backgroundColor: '#f5f5f5',
+                            backgroundColor: (theme) => theme.customTokens.background.secondary,
                             mb: 2,
                           }}
                         >
@@ -607,14 +603,14 @@ function CreatePayment() {
                           <Box
                             sx={{
                               p: 2,
-                              border: '1px solid #2196f3',
+                              border: (theme) => `1px solid ${theme.palette.info.main}`,
                               borderRadius: 1,
-                              backgroundColor: '#e3f2fd',
+                              backgroundColor: (theme) => alpha(theme.palette.info.main, 0.14),
                             }}
                           >
                             <Typography
                               variant="caption"
-                              sx={{ color: '#1565c0' }}
+                              sx={{ color: 'info.main' }}
                             >
                               Exchange Rate
                             </Typography>
@@ -622,7 +618,7 @@ function CreatePayment() {
                               variant="body2"
                               sx={{
                                 fontWeight: 600,
-                                color: '#1565c0',
+                                color: 'info.main',
                                 mb: 1,
                               }}
                             >
@@ -635,7 +631,7 @@ function CreatePayment() {
 
                             <Typography
                               variant="caption"
-                              sx={{ color: '#1565c0' }}
+                              sx={{ color: 'info.main' }}
                             >
                               Receiver Gets
                             </Typography>
@@ -643,7 +639,7 @@ function CreatePayment() {
                               variant="h6"
                               sx={{
                                 fontWeight: 700,
-                                color: '#1565c0',
+                                color: 'info.main',
                               }}
                             >
                               {parseFloat(convertedAmount).toFixed(2)}{' '}
@@ -673,7 +669,7 @@ function CreatePayment() {
                     <Box
                       sx={{
                         p: 2,
-                        border: '1px solid #e0e0e0',
+                        border: (theme) => `1px solid ${theme.palette.divider}`,
                         borderRadius: 1,
                         mb: 3,
                       }}
