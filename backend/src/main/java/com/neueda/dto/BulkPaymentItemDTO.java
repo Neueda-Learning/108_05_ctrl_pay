@@ -18,6 +18,7 @@ public record BulkPaymentItemDTO(
     
     /**
      * ISO 4217 currency code (e.g., USD, EUR).
+     * Optional - defaults to source account currency if not provided.
      */
     String currency,
     
@@ -25,5 +26,20 @@ public record BulkPaymentItemDTO(
      * Optional transaction description/memo.
      */
     String description
-) {}
+) {
+    /**
+     * Constructor with only required fields.
+     * Currency and description default to null and will be set from source account.
+     */
+    public static BulkPaymentItemDTO create(String destinationAccount, BigDecimal amount) {
+        return new BulkPaymentItemDTO(destinationAccount, amount, null, null);
+    }
+    
+    /**
+     * Constructor with currency specified.
+     */
+    public static BulkPaymentItemDTO create(String destinationAccount, BigDecimal amount, String currency) {
+        return new BulkPaymentItemDTO(destinationAccount, amount, currency, null);
+    }
+}
 

@@ -1,33 +1,50 @@
 import React, { useState, useRef } from 'react';
-import { Box, Button, Card, CardContent, Stepper, Step, StepLabel, Tab, Tabs, Alert, CircularProgress, Typography, TextField } from '@mui/material';
+import { Box, Button, Card, CardContent, Stepper, Step, StepLabel, Tab, Tabs, Alert, CircularProgress, Typography, TextField, useTheme, FormControl, InputLabel, Select, MenuItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { toast } from 'react-toastify';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
+import { useCustomer } from '../context/CustomerContext';
 import BulkPaymentResults from '../components/BulkPaymentResults';
 import './BulkPayments.css';
 
 const BulkPayments = () => {
+  const theme = useTheme();
+  const custom = theme.customTokens;
+  const { customerAccounts, customerId } = useCustomer();
   const [mode, setMode] = useState('upload'); // 'upload' or 'manual'
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [csvValidationResult, setCsvValidationResult] = useState(null);
   const [batchResult, setBatchResult] = useState(null);
+  const [selectedSourceAccount, setSelectedSourceAccount] = useState(''); // From dropdown
+
+  // PIN Authentication
+  const [pinDialogOpen, setPinDialogOpen] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pendingSubmit, setPendingSubmit] = useState(null); // 'csv' or 'manual'
 
   // Upload mode state
   const [selectedFile, setSelectedFile] = useState(null);
   const fileInputRef = useRef(null);
 
-  // Manual mode state
-  const [sourceAccount, setSourceAccount] = useState('');
-  const [manualItems, setManualItems] = useState([{ destination: '', amount: '', currency: 'USD', description: '' }]);
+   // Manual mode state - simplified to only destination and amount
+   const [manualItems, setManualItems] = useState([{ destination: '', amount: '' }]);
+
+   // Get source account details for currency
+   const getSourceAccountCurrency = () => {
+     if (!selectedSourceAccount || !customerAccounts) return 'USD';
+     const account = customerAccounts.find(a => a.accountNumber === selectedSourceAccount);
+     return account?.currency || 'USD';
+   };
 
   // Sample CSV reference
-  const sampleCSVContent = `destinationAccount,amount,currency,description
-987654321001,1000,USD,Rent payment
-987654321002,500,USD,Invoice payment
-987654321003,2000,EUR,Vendor payment`;
+  const sampleCSVContent = `destinationAccount,amount
+987654321001,1000
+987654321002,500
+987654321003,2000`;
 
   // ================== UPLOAD MODE ==================
 
@@ -39,7 +56,7 @@ const BulkPayments = () => {
     }
   };
 
-const validateCSV = async () => {
+  const validateCSV = async () => {
     if (!selectedFile) {
       toast.error('Please select a CSV file');
       return;
@@ -86,48 +103,84 @@ const validateCSV = async () => {
       return;
     }
 
-    // Read CSV and send to backend
+    // Check if source account is selected
+    if (!selectedSourceAccount) {
+      toast.error('Please select a source account above');
+      return;
+    }
+
+    // Ask for PIN
+    setPendingSubmit('csv');
+    setPinDialogOpen(true);
+  };
+
+  // ================== MANUAL MODE ==================
+
+  const handlePinSubmit = async () => {
+    if (!pinInput) {
+      toast.error('Please enter your PIN');
+      return;
+    }
+
+    setPinDialogOpen(false);
     setLoading(true);
+
     try {
-      const text = await selectedFile.text();
-      const lines = text.split('\n').slice(1); // Skip header
-      const items = lines
-        .filter(line => line.trim())
-        .map(line => {
-          const [dest, amount, currency, description] = line.split(',').map(v => v.trim());
-          return {
-            destinationAccount: dest,
-            amount: parseFloat(amount),
-            currency: currency,
-            description: description
-          };
+       if (pendingSubmit === 'csv') {
+         // Process CSV submission
+         const text = await selectedFile.text();
+         const lines = text.split('\n').slice(1); // Skip header
+         const items = lines
+           .filter(line => line.trim())
+           .map(line => {
+             const [dest, amount] = line.split(',').map(v => v.trim());
+             return {
+               destinationAccount: dest,
+               amount: parseFloat(amount)
+               // Currency will be set to source account currency by backend
+             };
+           });
+
+         const response = await api.post('/bulk-payments', {
+           sourceAccount: selectedSourceAccount,
+           pin: pinInput,
+           items,
+           idempotencyKey: `upload-${Date.now()}`
+         });
+
+        setBatchResult(response.data);
+        toast.success(`Bulk payment batch created: ${response.data.batchReference}`);
+        setActiveStep(2);
+      } else if (pendingSubmit === 'manual') {
+        // Process manual submission
+        const items = manualItems.map(item => ({
+          destinationAccount: item.destination,
+          amount: parseFloat(item.amount)
+        }));
+
+        const response = await api.post('/bulk-payments', {
+          sourceAccount: selectedSourceAccount,
+          pin: pinInput,
+          items,
+          idempotencyKey: `manual-${Date.now()}`
         });
 
-      // Get source account (TODO: from authenticated user)
-      const sourceAccount = prompt('Enter source account number:');
-      if (!sourceAccount) return;
-
-      const response = await api.post('/bulk-payments', {
-        sourceAccount,
-        items,
-        idempotencyKey: `upload-${Date.now()}`
-      });
-
-      setBatchResult(response.data);
-      toast.success(`Bulk payment batch created: ${response.data.batchReference}`);
-      setActiveStep(2);
+        setBatchResult(response.data);
+        toast.success(`Bulk payment batch created: ${response.data.batchReference}`);
+        setActiveStep(2);
+      }
     } catch (error) {
       toast.error('Error creating batch: ' + (error.response?.data?.message || error.message));
       console.error('Batch creation error:', error);
     } finally {
       setLoading(false);
+      setPinInput('');
+      setPendingSubmit(null);
     }
   };
 
-  // ================== MANUAL MODE ==================
-
   const handleAddRow = () => {
-    setManualItems([...manualItems, { destination: '', amount: '', currency: 'USD', description: '' }]);
+    setManualItems([...manualItems, { destination: '', amount: '' }]);
   };
 
   const handleRemoveRow = (index) => {
@@ -141,8 +194,8 @@ const validateCSV = async () => {
   };
 
   const validateManualItems = () => {
-    if (!sourceAccount) {
-      toast.error('Please enter source account');
+    if (!selectedSourceAccount) {
+      toast.error('Please select a source account from the dropdown above');
       return false;
     }
     if (manualItems.length === 0) {
@@ -152,8 +205,8 @@ const validateCSV = async () => {
 
     for (let i = 0; i < manualItems.length; i++) {
       const item = manualItems[i];
-      if (!item.destination || !item.amount || !item.currency) {
-        toast.error(`Row ${i + 1}: Please fill in all required fields`);
+      if (!item.destination || !item.amount) {
+        toast.error(`Row ${i + 1}: Please fill in all required fields (destination account and amount)`);
         return false;
       }
       if (!/^\d{12}$/.test(item.destination)) {
@@ -164,13 +217,9 @@ const validateCSV = async () => {
         toast.error(`Row ${i + 1}: Amount must be a positive number`);
         return false;
       }
-      if (!/^[A-Z]{3}$/.test(item.currency)) {
-        toast.error(`Row ${i + 1}: Currency must be 3 uppercase letters (e.g., USD)`);
-        return false;
-      }
     }
 
-    if (sourceAccount === manualItems[0].destination) {
+    if (selectedSourceAccount === manualItems[0].destination) {
       toast.error('Source and destination accounts cannot be the same');
       return false;
     }
@@ -181,30 +230,9 @@ const validateCSV = async () => {
   const submitManualPayments = async () => {
     if (!validateManualItems()) return;
 
-    setLoading(true);
-    try {
-      const items = manualItems.map(item => ({
-        destinationAccount: item.destination,
-        amount: parseFloat(item.amount),
-        currency: item.currency,
-        description: item.description || null
-      }));
-
-      const response = await api.post('/bulk-payments', {
-        sourceAccount,
-        items,
-        idempotencyKey: `manual-${Date.now()}`
-      });
-
-      setBatchResult(response.data);
-      toast.success(`Bulk payment batch created: ${response.data.batchReference}`);
-      setActiveStep(2);
-    } catch (error) {
-      toast.error('Error creating batch: ' + (error.response?.data?.message || error.message));
-      console.error('Batch creation error:', error);
-    } finally {
-      setLoading(false);
-    }
+    // Ask for PIN before processing
+    setPendingSubmit('manual');
+    setPinDialogOpen(true);
   };
 
   // ================== RESULTS VIEW ==================
@@ -226,6 +254,64 @@ const validateCSV = async () => {
         </Typography>
       </Box>
 
+      {/* Source Account Selector - Same for both modes */}
+      <Card sx={{ mb: 4, border: `2px solid ${alpha(custom.brand.main, 0.3)}` }}>
+        <CardContent>
+          {!customerId ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              Please select a customer first to view available accounts. Go to <strong>Create Customer</strong> in the sidebar.
+            </Alert>
+          ) : null}
+
+          <FormControl fullWidth sx={{ minWidth: 300 }} disabled={!customerId}>
+            <InputLabel id="source-account-label">Select Source Account</InputLabel>
+            <Select
+              labelId="source-account-label"
+              id="source-account-select"
+              value={selectedSourceAccount}
+              label="Select Source Account"
+              onChange={(e) => setSelectedSourceAccount(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '&:hover fieldset': {
+                    borderColor: custom.brand.main,
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: custom.brand.main,
+                  },
+                },
+              }}
+            >
+              <MenuItem value="">
+                <em>-- Choose an account --</em>
+              </MenuItem>
+              {customerId && customerAccounts && Array.isArray(customerAccounts) && customerAccounts.length > 0 ? (
+                customerAccounts.map((account) => (
+                  <MenuItem key={account.accountNumber} value={account.accountNumber}>
+                    {account.accountNumber} - {account.accountName || 'No Name'} ({account.currency})
+                  </MenuItem>
+                ))
+              ) : customerId ? (
+                <MenuItem disabled>
+                  No accounts found for this customer
+                </MenuItem>
+              ) : (
+                <MenuItem disabled>
+                  Select a customer to view accounts
+                </MenuItem>
+              )}
+            </Select>
+            {selectedSourceAccount && (
+              <Box sx={{ mt: 2, p: 1.5, backgroundColor: alpha(custom.brand.main, 0.08), borderRadius: 1, borderLeft: `3px solid ${custom.brand.main}` }}>
+                <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                  Selected: <strong>{selectedSourceAccount}</strong>
+                </Typography>
+              </Box>
+            )}
+          </FormControl>
+        </CardContent>
+      </Card>
+
       <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
         <Step>
           <StepLabel>{mode === 'upload' ? 'Upload CSV' : 'Enter Payments'}</StepLabel>
@@ -240,20 +326,34 @@ const validateCSV = async () => {
 
       {activeStep === 0 && (
         <Box>
+          {!selectedSourceAccount && (
+            <Alert severity="info" sx={{ mb: 3 }}>
+              <strong>Select a source account above to proceed with bulk payments.</strong>
+            </Alert>
+          )}
+
           {/* Mode Selection */}
-          <Card sx={{ mb: 3 }}>
+          <Card sx={{ mb: 3, opacity: selectedSourceAccount ? 1 : 0.6 }}>
             <CardContent>
-              <Tabs value={mode === 'upload' ? 0 : 1} onChange={(e, newValue) => {
-                setMode(newValue === 0 ? 'upload' : 'manual');
-                setActiveStep(0);
-                setCsvValidationResult(null);
-              }}>
-                <Tab label="CSV Upload" />
-                <Tab label="Manual Entry" />
+              <Tabs
+                value={mode === 'upload' ? 0 : 1}
+                onChange={(e, newValue) => {
+                  if (selectedSourceAccount) {
+                    setMode(newValue === 0 ? 'upload' : 'manual');
+                    setActiveStep(0);
+                    setCsvValidationResult(null);
+                  }
+                }}
+                disabled={!selectedSourceAccount}
+              >
+                <Tab label="CSV Upload" disabled={!selectedSourceAccount} />
+                <Tab label="Manual Entry" disabled={!selectedSourceAccount} />
               </Tabs>
             </CardContent>
           </Card>
 
+          {selectedSourceAccount && (
+            <>
           {/* Upload Mode */}
           {mode === 'upload' && (
             <Card>
@@ -262,10 +362,23 @@ const validateCSV = async () => {
                   Upload CSV File
                 </Typography>
 
-                <Box sx={{ mb: 3, p: 2, border: '2px dashed #ccc', borderRadius: 2, textAlign: 'center', cursor: 'pointer' }}
+                <Box sx={{
+                  mb: 3,
+                  p: 2,
+                  border: `2px dashed ${custom.brand.main}`,
+                  borderRadius: 2,
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  backgroundColor: alpha(custom.brand.main, 0.05),
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    backgroundColor: alpha(custom.brand.main, 0.1),
+                    borderColor: custom.brand.light,
+                  }
+                }}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <CloudUploadIcon sx={{ fontSize: 48, color: '#1976d2', mb: 1 }} />
+                  <CloudUploadIcon sx={{ fontSize: 48, color: custom.brand.main, mb: 1 }} />
                   <Typography>
                     Click to upload or drag and drop
                   </Typography>
@@ -291,11 +404,21 @@ const validateCSV = async () => {
                   <Typography variant="subtitle2" gutterBottom>
                     CSV Format (Required Columns):
                   </Typography>
-                  <pre style={{ backgroundColor: '#f5f5f5', p: 1, borderRadius: 1, overflow: 'auto', maxHeight: 150 }}>
-{`destinationAccount,amount,currency,description
-987654321001,1000,USD,Rent payment
-987654321002,500,USD,Invoice payment`}
-                  </pre>
+                  <Box sx={{
+                    backgroundColor: alpha(custom.gridHeader, 0.7),
+                    border: `1px solid ${custom.border}`,
+                    borderRadius: 1,
+                    overflow: 'auto',
+                    maxHeight: 150,
+                    p: 2,
+                    fontFamily: 'monospace',
+                    fontSize: '0.85rem',
+                    color: custom.text.primary
+                   }}>
+{`destinationAccount,amount
+987654321001,1000
+987654321002,500`}
+                   </Box>
                 </Box>
 
                 <Box sx={{ display: 'flex', gap: 2 }}>
@@ -320,94 +443,105 @@ const validateCSV = async () => {
           )}
 
           {/* Manual Mode */}
-          {mode === 'manual' && (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Manual Payment Entry
-                </Typography>
+           {mode === 'manual' && (
+             <Card>
+               <CardContent>
+                 <Typography variant="h6" gutterBottom>
+                   Manual Payment Entry
+                 </Typography>
 
-                <TextField
-                  fullWidth
-                  label="Source Account Number"
-                  placeholder="12-digit account number"
-                  value={sourceAccount}
-                  onChange={(e) => setSourceAccount(e.target.value)}
-                  sx={{ mb: 3 }}
-                  inputProps={{ pattern: '[0-9]{12}' }}
-                />
+                 <Alert severity="info" sx={{ mb: 3 }}>
+                   Source account has been selected from the dropdown above. Add payment destinations in the table below.
+                 </Alert>
 
-                <Typography variant="subtitle2" gutterBottom sx={{ mt: 3, mb: 2 }}>
-                  Payment Items
-                </Typography>
+                  <Typography variant="subtitle2" gutterBottom sx={{ mb: 2 }}>
+                    Payment Items
+                  </Typography>
 
-                <Box sx={{ overflowX: 'auto', mb: 2 }}>
-                  <table className="manual-entry-table">
-                    <thead>
-                      <tr>
-                        <th>Destination Account</th>
-                        <th>Amount</th>
-                        <th>Currency</th>
-                        <th>Description</th>
-                        <th>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {manualItems.map((item, index) => (
-                        <tr key={index}>
-                          <td>
-                            <TextField
-                              size="small"
-                              placeholder="12 digits"
-                              value={item.destination}
-                              onChange={(e) => handleItemChange(index, 'destination', e.target.value)}
-                              fullWidth
-                            />
-                          </td>
-                          <td>
-                            <TextField
-                              size="small"
-                              type="number"
-                              step="0.01"
-                              placeholder="0.00"
-                              value={item.amount}
-                              onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
-                              fullWidth
-                            />
-                          </td>
-                          <td>
-                            <TextField
-                              size="small"
-                              placeholder="USD"
-                              value={item.currency}
-                              onChange={(e) => handleItemChange(index, 'currency', e.target.value.toUpperCase())}
-                              fullWidth
-                            />
-                          </td>
-                          <td>
-                            <TextField
-                              size="small"
-                              placeholder="Optional"
-                              value={item.description}
-                              onChange={(e) => handleItemChange(index, 'description', e.target.value)}
-                              fullWidth
-                            />
-                          </td>
-                          <td>
-                            <Button
-                              size="small"
-                              color="error"
-                              onClick={() => handleRemoveRow(index)}
-                              disabled={manualItems.length === 1}
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </Button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </Box>
+                 <TableContainer component={Paper} sx={{
+                   mb: 2,
+                   backgroundColor: custom.gridRow,
+                   border: `1px solid ${alpha(custom.border, 0.5)}`
+                 }}>
+                   <Table>
+                      <TableHead>
+                        <TableRow sx={{ backgroundColor: custom.gridHeader }}>
+                          <TableCell sx={{ fontWeight: 700, color: custom.text.secondary }}>Destination Account</TableCell>
+                          <TableCell sx={{ fontWeight: 700, color: custom.text.secondary }}>Amount</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700, color: custom.text.secondary }}>Action</TableCell>
+                        </TableRow>
+                      </TableHead>
+                     <TableBody>
+                       {manualItems.map((item, index) => (
+                         <TableRow
+                           key={index}
+                           sx={{
+                             '&:hover': {
+                               backgroundColor: alpha(custom.brand.main, 0.05)
+                             },
+                             borderBottom: `1px solid ${alpha(custom.border, 0.3)}`
+                           }}
+                         >
+                           <TableCell>
+                             <TextField
+                               size="small"
+                               placeholder="12 digits"
+                               value={item.destination}
+                               onChange={(e) => handleItemChange(index, 'destination', e.target.value)}
+                               fullWidth
+                               sx={{
+                                 '& .MuiOutlinedInput-root': {
+                                   '&:hover fieldset': {
+                                     borderColor: custom.brand.main,
+                                   },
+                                   '&.Mui-focused fieldset': {
+                                     borderColor: custom.brand.main,
+                                   },
+                                 },
+                               }}
+                             />
+                           </TableCell>
+                           <TableCell>
+                             <TextField
+                               size="small"
+                               type="number"
+                               step="0.01"
+                               placeholder="0.00"
+                               value={item.amount}
+                               onChange={(e) => handleItemChange(index, 'amount', e.target.value)}
+                               fullWidth
+                               sx={{
+                                 '& .MuiOutlinedInput-root': {
+                                   '&:hover fieldset': {
+                                     borderColor: custom.brand.main,
+                                   },
+                                   '&.Mui-focused fieldset': {
+                                     borderColor: custom.brand.main,
+                                   },
+                                 },
+                               }}
+                             />
+                            </TableCell>
+                            <TableCell align="center">
+                              <Button
+                                size="small"
+                                color="error"
+                                onClick={() => handleRemoveRow(index)}
+                                disabled={manualItems.length === 1}
+                                sx={{
+                                  '&:hover': {
+                                    backgroundColor: alpha('#f44336', 0.1),
+                                  }
+                                }}
+                              >
+                                <DeleteIcon fontSize="small" />
+                              </Button>
+                            </TableCell>
+                         </TableRow>
+                       ))}
+                     </TableBody>
+                   </Table>
+                 </TableContainer>
 
                 <Button
                   variant="outlined"
@@ -419,28 +553,29 @@ const validateCSV = async () => {
                   Add Row
                 </Button>
 
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={submitManualPayments}
-                    disabled={loading}
-                    startIcon={loading ? <CircularProgress size={20} /> : undefined}
-                  >
-                    Submit Payments
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      setSourceAccount('');
-                      setManualItems([{ destination: '', amount: '', currency: 'USD', description: '' }]);
-                    }}
-                  >
-                    Clear All
-                  </Button>
-                </Box>
+                 <Box sx={{ display: 'flex', gap: 2 }}>
+                   <Button
+                     variant="contained"
+                     color="primary"
+                     onClick={submitManualPayments}
+                     disabled={loading}
+                     startIcon={loading ? <CircularProgress size={20} /> : undefined}
+                   >
+                     Submit Payments
+                   </Button>
+                   <Button
+                     variant="outlined"
+                     onClick={() => {
+                       setManualItems([{ destination: '', amount: '' }]);
+                     }}
+                   >
+                     Clear All
+                   </Button>
+                 </Box>
               </CardContent>
             </Card>
+          )}
+            </>
           )}
         </Box>
       )}
@@ -506,6 +641,61 @@ const validateCSV = async () => {
       {activeStep === 2 && batchResult && (
         <BulkPaymentResults batch={batchResult} onRetry={handleRetry} />
       )}
+
+      {/* PIN Verification Dialog */}
+      <Dialog
+        open={pinDialogOpen}
+        onClose={() => {
+          if (!loading) {
+            setPinDialogOpen(false);
+            setPinInput('');
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Enter Account PIN</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            Please enter your 4-6 digit PIN to authorize this bulk payment transaction
+          </Typography>
+          <TextField
+            autoFocus
+            fullWidth
+            label="PIN"
+            type="password"
+            value={pinInput}
+            onChange={(e) => setPinInput(e.target.value)}
+            placeholder="Enter 4-6 digits"
+            inputProps={{ maxLength: 6, pattern: '[0-9]*' }}
+            disabled={loading}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !loading) {
+                handlePinSubmit();
+              }
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button
+            onClick={() => {
+              setPinDialogOpen(false);
+              setPinInput('');
+            }}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handlePinSubmit}
+            variant="contained"
+            disabled={loading || !pinInput}
+            startIcon={loading ? <CircularProgress size={20} /> : undefined}
+          >
+            {loading ? 'Processing...' : 'Authorize'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </div>
   );
 };

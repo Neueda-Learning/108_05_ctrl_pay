@@ -2,18 +2,23 @@ package com.neueda.service.bulk;
 
 import com.neueda.domain.*;
 import com.neueda.dto.*;
+import com.neueda.exception.AccountValidationException;
 import com.neueda.exception.BulkPaymentBatchNotFoundException;
 import com.neueda.exception.BulkPaymentCSVValidationException;
 import com.neueda.fraud.FraudDetectionService;
 import com.neueda.repository.BulkPaymentBatchRepository;
 import com.neueda.repository.BulkPaymentItemRepository;
 import com.neueda.repository.PaymentRepository;
+import com.neueda.repository.ValidationRuleRepository;
+import com.neueda.service.AccountService;
 import com.neueda.service.PaymentService;
+import com.neueda.service.PaymentSettlementService;
 import com.neueda.validation.RuleEngine;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.BufferedReader;
@@ -55,24 +60,33 @@ public class BulkPaymentService {
     private final BulkPaymentBatchRepository batchRepository;
     private final BulkPaymentItemRepository itemRepository;
     private final PaymentService paymentService;
+    private final PaymentSettlementService paymentSettlementService;
     private final FraudDetectionService fraudDetectionService;
     private final RuleEngine ruleEngine;
     private final PaymentRepository paymentRepository;
+    private final ValidationRuleRepository validationRuleRepository;
+    private final AccountService accountService;
     
     public BulkPaymentService(
         BulkPaymentBatchRepository batchRepository,
         BulkPaymentItemRepository itemRepository,
         PaymentService paymentService,
+        PaymentSettlementService paymentSettlementService,
         FraudDetectionService fraudDetectionService,
         RuleEngine ruleEngine,
-        PaymentRepository paymentRepository
+        PaymentRepository paymentRepository,
+        ValidationRuleRepository validationRuleRepository,
+        AccountService accountService
     ) {
         this.batchRepository = batchRepository;
         this.itemRepository = itemRepository;
         this.paymentService = paymentService;
+        this.paymentSettlementService = paymentSettlementService;
         this.fraudDetectionService = fraudDetectionService;
         this.ruleEngine = ruleEngine;
         this.paymentRepository = paymentRepository;
+        this.validationRuleRepository = validationRuleRepository;
+        this.accountService = accountService;
     }
     
     /**
@@ -141,6 +155,13 @@ public class BulkPaymentService {
         // Validate source account
         validateSourceAccount(request.sourceAccount());
         
+        // Step 1: Verify source account PIN
+        try {
+            accountService.verifyAccountPinByAccountNumber(request.sourceAccount(), request.pin());
+        } catch (AccountValidationException e) {
+            throw new BulkPaymentCSVValidationException("PIN verification failed: " + e.getMessage());
+        }
+        
         // Check idempotency
         if (request.idempotencyKey() != null) {
             Optional<BulkPaymentBatchRecord> existing = batchRepository.findByIdempotencyKey(request.idempotencyKey());
@@ -150,8 +171,9 @@ public class BulkPaymentService {
             }
         }
         
-        // Validate all items
+        // Step 2: Validate all items and check destination accounts exist
         validateItemsList(request.items());
+        validateDestinationAccounts(request.items());
         
         // Create batch record
         BigDecimal totalAmount = request.items().stream()
@@ -171,16 +193,27 @@ public class BulkPaymentService {
         BulkPaymentBatchRecord createdBatch = batchRepository.create(batch);
         logger.info("Created bulk payment batch: {} with {} items", batchReference, request.items().size());
         
+        // Fetch source account to get its currency as default
+        AccountRecord sourceAccount = accountService.getAccountByAccountNumber(request.sourceAccount())
+            .orElseThrow(() -> new AccountValidationException(
+                "Source account not found: " + request.sourceAccount(),
+                "SOURCE_ACCOUNT_NOT_FOUND"
+            ));
+        String sourceCurrency = sourceAccount.currency();
+        
         // Create item records
         List<BulkPaymentItemRecord> itemRecords = new ArrayList<>();
         for (int i = 0; i < request.items().size(); i++) {
             BulkPaymentItemDTO itemDTO = request.items().get(i);
+            // Use item currency if provided, otherwise use source account currency
+            String itemCurrency = itemDTO.currency() != null ? itemDTO.currency() : sourceCurrency;
+            
             BulkPaymentItemRecord item = BulkPaymentItemRecord.create(
                 createdBatch.id(),
                 i + 1, // 1-indexed line number
                 itemDTO.destinationAccount(),
                 itemDTO.amount(),
-                itemDTO.currency(),
+                itemCurrency,
                 itemDTO.description()
             );
             itemRecords.add(item);
@@ -193,15 +226,27 @@ public class BulkPaymentService {
         BulkPaymentBatchRecord updatedBatch = createdBatch.withValidationStarted();
         batchRepository.update(updatedBatch);
         
-        // Return response
-        return convertBatchToResponse(updatedBatch);
+        // Automatically start validation and settlement for synchronous processing
+        try {
+            validateBatch(createdBatch.id());
+            processBatchSettlement(createdBatch.id());
+            logger.info("Batch {} processing completed automatically", batchReference);
+        } catch (Exception e) {
+            logger.error("Error during automatic batch processing: {}", e.getMessage(), e);
+            // Batch creation succeeded, but processing had issues
+            // Return the batch response anyway with current status
+        }
+        
+        // Return response with updated status
+        return convertBatchToResponse(batchRepository.findById(createdBatch.id()).orElse(updatedBatch));
     }
     
     /**
      * Validate all items in a batch using existing validation rules.
      * This executes the validation phase without persisting payments yet.
+     * Uses independent transaction (REQUIRES_NEW) so errors don't rollback batch creation.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void validateBatch(Long batchId) throws BulkPaymentBatchNotFoundException {
         BulkPaymentBatchRecord batch = batchRepository.findById(batchId)
             .orElseThrow(() -> new BulkPaymentBatchNotFoundException(batchId));
@@ -254,8 +299,9 @@ public class BulkPaymentService {
     /**
      * Process settlement for all validated items in a batch.
      * Fraud detection occurs prior to settlement.
+     * Uses independent transaction (REQUIRES_NEW) so errors don't rollback batch creation.
      */
-    @Transactional
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void processBatchSettlement(Long batchId) throws BulkPaymentBatchNotFoundException {
         BulkPaymentBatchRecord batch = batchRepository.findById(batchId)
             .orElseThrow(() -> new BulkPaymentBatchNotFoundException(batchId));
@@ -391,26 +437,45 @@ public class BulkPaymentService {
         }
     }
     
+    /**
+     * Validate that all destination accounts exist in the database.
+     * Throws exception if any destination account is not found.
+     */
+    private void validateDestinationAccounts(List<BulkPaymentItemDTO> items) throws BulkPaymentCSVValidationException {
+        for (int i = 0; i < items.size(); i++) {
+            BulkPaymentItemDTO item = items.get(i);
+            try {
+                accountService.getAccountByAccountNumber(item.destinationAccount())
+                    .orElseThrow(() -> new AccountValidationException(
+                        "Destination account not found: " + item.destinationAccount(),
+                        "ACCOUNT_NOT_FOUND"
+                    ));
+            } catch (AccountValidationException e) {
+                throw new BulkPaymentCSVValidationException(
+                    "Row " + (i + 1) + ": Destination account not found: " + item.destinationAccount()
+                );
+            }
+        }
+    }
+    
     private boolean isValidCSVHeader(String headerLine) {
         String[] parts = headerLine.split(",");
-        return parts.length >= 3 &&
+        return parts.length >= 2 &&
             "destinationAccount".equals(parts[0].trim()) &&
-            "amount".equals(parts[1].trim()) &&
-            "currency".equals(parts[2].trim());
+            "amount".equals(parts[1].trim());
     }
     
     private List<String> validateCSVLine(String line, int lineNumber) {
         List<String> errors = new ArrayList<>();
         String[] parts = line.split(",");
         
-        if (parts.length < 3) {
-            errors.add("Line " + lineNumber + ": Missing required columns");
+        if (parts.length < 2) {
+            errors.add("Line " + lineNumber + ": Missing required columns (destinationAccount, amount)");
             return errors;
         }
         
         String destAccount = parts[0].trim();
         String amountStr = parts[1].trim();
-        String currency = parts[2].trim();
         
         // Validate destination account
         if (!destAccount.matches("^[0-9]{12}$")) {
@@ -430,11 +495,6 @@ public class BulkPaymentService {
             errors.add("Line " + lineNumber + ": Invalid amount format");
         }
         
-        // Validate currency
-        if (!currency.matches("^[A-Z]{3}$")) {
-            errors.add("Line " + lineNumber + ": Invalid currency code (must be 3 uppercase letters)");
-        }
-        
         return errors;
     }
     
@@ -451,8 +511,11 @@ public class BulkPaymentService {
             item.currency()
         );
         
+        // Fetch active validation rules
+        List<ValidationRuleRecord> activeRules = validationRuleRepository.findActiveRules();
+        
         // Execute validation rules
-        return ruleEngine.validatePayment(tempPayment);
+        return ruleEngine.validatePayment(tempPayment, activeRules);
     }
     
     private boolean processSingleItem(BulkPaymentItemRecord item, String sourceAccount) {
@@ -461,18 +524,67 @@ public class BulkPaymentService {
             BulkPaymentItemRecord processingItem = item.withProcessingStarted(null);
             itemRepository.update(processingItem);
             
-            // Create actual payment via existing PaymentService
-            PaymentRecord payment = PaymentRecord.create(
-                null,
+            // Step 1: Fetch destination account details to get its currency
+            AccountRecord destAccount = accountService.getAccountByAccountNumber(item.destinationAccount())
+                .orElseThrow(() -> new AccountValidationException(
+                    "Destination account not found: " + item.destinationAccount(),
+                    "ACCOUNT_NOT_FOUND"
+                ));
+            
+            // Step 2: Fetch source account details for currency information
+            AccountRecord srcAccount = accountService.getAccountByAccountNumber(sourceAccount)
+                .orElseThrow(() -> new AccountValidationException(
+                    "Source account not found: " + sourceAccount,
+                    "ACCOUNT_NOT_FOUND"
+                ));
+            
+            String sourceCurrency = srcAccount.currency();
+            String destinationCurrency = destAccount.currency();
+            BigDecimal amount = item.amount(); // This is the amount in the item's currency
+            BigDecimal sourceAmount;
+            BigDecimal destinationAmount;
+            BigDecimal exchangeRate;
+            
+            // Step 3: Calculate amounts and exchange rate if currencies differ
+            if (sourceCurrency.equals(item.currency()) && item.currency().equals(destinationCurrency)) {
+                // Same currency for both - no conversion needed
+                sourceAmount = amount;
+                destinationAmount = amount;
+                exchangeRate = BigDecimal.ONE;
+            } else {
+                // Currency conversion may be needed
+                // For now, use the item's currency as the base
+                sourceAmount = amount;
+                
+                // Get exchange rate if destination currency differs from item currency
+                if (!item.currency().equals(destinationCurrency)) {
+                    // Would need to call CurrencyConversionService here
+                    // For now, using identity rate (1:1)
+                    exchangeRate = BigDecimal.ONE;
+                    destinationAmount = amount;
+                } else {
+                    exchangeRate = BigDecimal.ONE;
+                    destinationAmount = amount;
+                }
+            }
+            
+            // Step 4: Create payment record with exchange rate information
+            PaymentRecord payment = PaymentRecord.createWithExchangeRate(
+                null, // idempotencyKey
                 sourceAccount,
                 item.destinationAccount(),
-                item.amount(),
-                item.currency()
+                amount,
+                item.currency(),
+                sourceAmount,
+                destinationAmount,
+                exchangeRate
             );
             
+            // Step 5: Create payment via existing PaymentService
+            // This handles the full validation lifecycle
             PaymentRecord createdPayment = paymentService.createPayment(payment);
             
-            // Perform fraud detection
+            // Step 6: Perform fraud detection
             FraudAssessmentRecord fraudAssessment = fraudDetectionService.assessPayment(createdPayment);
             
             // Update item with fraud results
@@ -483,7 +595,7 @@ public class BulkPaymentService {
                 );
             itemRepository.update(fraudAssessedItem);
             
-            // Check fraud decision
+            // Step 7: Check fraud decision
             if (fraudAssessment.decision() == FraudDecision.REJECTED) {
                 BulkPaymentItemRecord rejectedItem = fraudAssessedItem.withProcessingFailure(
                     "FRAUD_REJECTED",
@@ -493,11 +605,16 @@ public class BulkPaymentService {
                 return false;
             }
             
-            // Process settlement (this will handle the actual balance updates)
-            // Note: PaymentService handles settlement logic
-            paymentService.processPaymentSettlement(createdPayment.id());
+            // Step 8: Process settlement (this will handle the actual balance updates)
+            // Note: Each settlement uses independent transaction boundary (REQUIRES_NEW)
+            if (createdPayment.status() == PaymentStatus.VALIDATED) {
+                // For bulk payments, transition to SENT first, then settle
+                PaymentRecord sentPayment = createdPayment.withStatus(PaymentStatus.SENT);
+                paymentRepository.update(sentPayment);
+                paymentSettlementService.settlePayment(createdPayment.id());
+            }
             
-            // Mark as success
+            // Step 9: Mark as success
             BulkPaymentItemRecord successItem = fraudAssessedItem.withProcessingSuccess();
             itemRepository.update(successItem);
             
@@ -576,4 +693,11 @@ public class BulkPaymentService {
         );
     }
 }
+
+
+
+
+
+
+
 

@@ -18,11 +18,19 @@ import com.neueda.domain.AccountRecord;
 import com.neueda.domain.CustomerRecord;
 import com.neueda.domain.PaymentRecord;
 import com.neueda.domain.PaymentStatus;
+import com.neueda.dto.AccountDetailsDTO;
+import com.neueda.dto.BulkPaymentSummaryDTO;
 import com.neueda.dto.CreateCustomerRequest;
+import com.neueda.dto.CustomerPaymentStatisticsDTO;
+import com.neueda.dto.CustomerProfileDTO;
 import com.neueda.dto.CustomerResponse;
+import com.neueda.dto.CustomerRiskDTO;
+import com.neueda.dto.AccountSummaryDTO;
 import com.neueda.dto.PaymentResponse;
+import com.neueda.dto.TransactionSummaryDTO;
 import com.neueda.exception.CustomerNotFoundException;
 import com.neueda.service.AccountService;
+import com.neueda.service.CustomerProfileService;
 import com.neueda.service.CustomerService;
 import com.neueda.service.FraudRiskService;
 import com.neueda.service.PaymentService;
@@ -40,17 +48,20 @@ public class CustomerController {
     private final PaymentService paymentService;
     private final AccountService accountService;
     private final FraudRiskService fraudRiskService;
+    private final CustomerProfileService customerProfileService;
 
     public CustomerController(
         CustomerService customerService,
         PaymentService paymentService,
         AccountService accountService,
-        FraudRiskService fraudRiskService
+        FraudRiskService fraudRiskService,
+        CustomerProfileService customerProfileService
     ) {
         this.customerService = customerService;
         this.paymentService = paymentService;
         this.accountService = accountService;
         this.fraudRiskService = fraudRiskService;
+        this.customerProfileService = customerProfileService;
     }
 
     /**
@@ -265,10 +276,213 @@ public class CustomerController {
             
             return ResponseEntity.ok(stats);
             
+         } catch (CustomerNotFoundException e) {
+             throw e;
+         } catch (Exception e) {
+             throw new com.neueda.exception.PaymentProcessingException("Error retrieving customer statistics: " + e.getMessage());
+         }
+     }
+
+
+    // =========================================================================
+    // CUSTOMER PROFILE SECTION ENDPOINTS
+    // =========================================================================
+
+    /**
+     * GET /api/customers/{customerId}/profile
+     * Retrieve complete customer profile information.
+     */
+    @GetMapping("/{customerId}/profile")
+    public ResponseEntity<CustomerProfileDTO> getProfile(@PathVariable Long customerId) {
+        try {
+            CustomerProfileDTO profile = customerProfileService.getCustomerProfile(customerId);
+            return ResponseEntity.ok(profile);
         } catch (CustomerNotFoundException e) {
             throw e;
         } catch (Exception e) {
-            throw new com.neueda.exception.PaymentProcessingException("Error retrieving customer statistics: " + e.getMessage());
+            throw new com.neueda.exception.PaymentProcessingException("Error retrieving customer profile: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/customers/{customerId}/profile/accounts
+     * Retrieve all accounts for a customer.
+     */
+    @GetMapping("/{customerId}/profile/accounts")
+    public ResponseEntity<List<AccountSummaryDTO>> getProfileAccounts(@PathVariable Long customerId) {
+        try {
+            List<AccountSummaryDTO> accounts = customerProfileService.getCustomerAccounts(customerId);
+            return ResponseEntity.ok(accounts);
+        } catch (CustomerNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new com.neueda.exception.PaymentProcessingException("Error retrieving customer accounts: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/customers/{customerId}/profile/accounts/{accountNumber}
+     * Retrieve detailed information for a specific account.
+     *
+     * Response: AccountDetailsDTO with account info, balance, recent transactions, and statistics.
+     */
+    @GetMapping("/{customerId}/profile/accounts/{accountNumber}")
+    public ResponseEntity<AccountDetailsDTO> getAccountDetails(
+        @PathVariable Long customerId,
+        @PathVariable String accountNumber
+    ) {
+        try {
+            AccountDetailsDTO accountDetails = customerProfileService.getAccountDetails(customerId, accountNumber);
+            return ResponseEntity.ok(accountDetails);
+        } catch (CustomerNotFoundException e) {
+            throw e;
+        } catch (com.neueda.exception.AccountValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new com.neueda.exception.PaymentProcessingException("Error retrieving account details: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/customers/{customerId}/profile/transactions
+     * Retrieve paginated transaction history for customer.
+     *
+     * Query Parameters:
+     * - status (optional): Filter by payment status
+     * - account (optional): Filter by specific account
+     * - dateFrom (optional): Filter by start date (ISO 8601)
+     * - dateTo (optional): Filter by end date (ISO 8601)
+     * - page (default 0): Page number for pagination
+     * - pageSize (default 10): Number of results per page
+     */
+    @GetMapping("/{customerId}/profile/transactions")
+    public ResponseEntity<List<TransactionSummaryDTO>> getProfileTransactions(
+        @PathVariable Long customerId,
+        @RequestParam(required = false) PaymentStatus status,
+        @RequestParam(required = false) String account,
+        @RequestParam(name = "dateFrom", required = false) String dateFrom,
+        @RequestParam(name = "dateTo", required = false) String dateTo,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int pageSize
+    ) {
+        try {
+            // Validate pagination parameters
+            if (pageSize <= 0 || pageSize > 100) {
+                throw new IllegalArgumentException("Page size must be between 1 and 100");
+            }
+            if (page < 0) {
+                throw new IllegalArgumentException("Page must be >= 0");
+            }
+
+            // Parse date parameters if provided
+            LocalDateTime dateFromParsed = null;
+            LocalDateTime dateToParsed = null;
+
+            if (dateFrom != null && !dateFrom.isEmpty()) {
+                try {
+                    dateFromParsed = LocalDateTime.parse(dateFrom, DateTimeFormatter.ISO_DATE_TIME);
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Invalid dateFrom format. Use ISO 8601 (e.g., 2026-07-01T00:00:00)");
+                }
+            }
+
+            if (dateTo != null && !dateTo.isEmpty()) {
+                try {
+                    dateToParsed = LocalDateTime.parse(dateTo, DateTimeFormatter.ISO_DATE_TIME);
+                } catch (Exception e) {
+                    throw new IllegalArgumentException("Invalid dateTo format. Use ISO 8601 (e.g., 2026-07-31T23:59:59)");
+                }
+            }
+
+            List<TransactionSummaryDTO> transactions = customerProfileService.getCustomerTransactions(
+                customerId,
+                status,
+                account,
+                dateFromParsed,
+                dateToParsed,
+                page,
+                pageSize
+            );
+            return ResponseEntity.ok(transactions);
+
+        } catch (CustomerNotFoundException e) {
+            throw e;
+        } catch (com.neueda.exception.AccountValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new com.neueda.exception.PaymentProcessingException("Error retrieving transactions: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/customers/{customerId}/profile/payment-statistics
+     * Retrieve payment statistics for customer.
+     */
+    @GetMapping("/{customerId}/profile/payment-statistics")
+    public ResponseEntity<CustomerPaymentStatisticsDTO> getProfilePaymentStatistics(@PathVariable Long customerId) {
+        try {
+            CustomerPaymentStatisticsDTO stats = customerProfileService.getPaymentStatistics(customerId);
+            return ResponseEntity.ok(stats);
+        } catch (CustomerNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new com.neueda.exception.PaymentProcessingException("Error retrieving payment statistics: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/customers/{customerId}/profile/risk
+     * Retrieve risk and security information for customer.
+     */
+    @GetMapping("/{customerId}/profile/risk")
+    public ResponseEntity<CustomerRiskDTO> getProfileRiskInformation(@PathVariable Long customerId) {
+        try {
+            CustomerRiskDTO risk = customerProfileService.getCustomerRiskInformation(customerId);
+            return ResponseEntity.ok(risk);
+        } catch (CustomerNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new com.neueda.exception.PaymentProcessingException("Error retrieving risk information: " + e.getMessage());
+        }
+    }
+
+    /**
+     * GET /api/customers/{customerId}/profile/bulk-payments
+     * Retrieve bulk payment batches for customer.
+     *
+     * Query Parameters:
+     * - page (default 0): Page number for pagination
+     * - pageSize (default 10): Number of results per page
+     * 
+     * Note: Returns empty list if bulk payments data is unavailable (graceful degradation).
+     */
+    @GetMapping("/{customerId}/profile/bulk-payments")
+    public ResponseEntity<List<BulkPaymentSummaryDTO>> getProfileBulkPayments(
+        @PathVariable Long customerId,
+        @RequestParam(defaultValue = "0") int page,
+        @RequestParam(defaultValue = "10") int pageSize
+    ) {
+        try {
+            // Validate pagination parameters
+            if (pageSize <= 0 || pageSize > 100) {
+                throw new IllegalArgumentException("Page size must be between 1 and 100");
+            }
+            if (page < 0) {
+                throw new IllegalArgumentException("Page must be >= 0");
+            }
+
+            List<BulkPaymentSummaryDTO> bulkPayments = customerProfileService.getCustomerBulkPayments(
+                customerId,
+                page,
+                pageSize
+            );
+            return ResponseEntity.ok(bulkPayments);
+
+        } catch (CustomerNotFoundException e) {
+            throw e;
+        } catch (Exception e) {
+            // Return empty list gracefully - allows profile to load even if bulk payments feature has issues
+            return ResponseEntity.ok(List.of());
         }
     }
 

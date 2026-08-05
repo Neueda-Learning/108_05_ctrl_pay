@@ -194,21 +194,42 @@ public class ValidationRuleRepositoryImpl implements ValidationRuleRepository {
         @Override
         public ValidationRuleRecord mapRow(ResultSet rs, int rowNum) throws SQLException {
             try {
-                JsonNode ruleDefinition = OM.readTree(rs.getString("rule_definition"));
+                // Parse rule definition JSON
+                String ruleDefStr = rs.getString("rule_definition");
+                JsonNode ruleDefinition = ruleDefStr != null ? OM.readTree(ruleDefStr) : null;
+                
+                // Handle timestamp columns safely
+                java.sql.Timestamp createdAtTs = rs.getTimestamp("created_at");
+                java.sql.Timestamp updatedAtTs = rs.getTimestamp("updated_at");
+                
+                LocalDateTime createdAt = createdAtTs != null ? createdAtTs.toLocalDateTime() : LocalDateTime.now();
+                LocalDateTime updatedAt = updatedAtTs != null ? updatedAtTs.toLocalDateTime() : LocalDateTime.now();
+                
+                // Get rule type and severity safely
+                String ruleTypeStr = rs.getString("rule_type");
+                String severityStr = rs.getString("severity");
+                
+                if (ruleTypeStr == null || severityStr == null) {
+                    throw new SQLException("Rule type and severity cannot be null");
+                }
+                
                 return new ValidationRuleRecord(
                     rs.getLong("id"),
                     rs.getString("name"),
                     rs.getString("description"),
-                    RuleType.valueOf(rs.getString("rule_type")),
+                    RuleType.valueOf(ruleTypeStr),
                     ruleDefinition,
                     rs.getBoolean("is_active"),
-                    Severity.valueOf(rs.getString("severity")),
+                    Severity.valueOf(severityStr),
                     rs.getInt("order_of_execution"),
-                    rs.getTimestamp("created_at").toLocalDateTime(),
-                    rs.getTimestamp("updated_at").toLocalDateTime()
+                    createdAt,
+                    updatedAt
                 );
+            } catch (SQLException e) {
+                // Re-throw SQL exceptions as-is
+                throw e;
             } catch (Exception e) {
-                throw new SQLException("Error mapping ValidationRuleRecord", e);
+                throw new SQLException("Error mapping ValidationRuleRecord: " + e.getMessage(), e);
             }
         }
     }

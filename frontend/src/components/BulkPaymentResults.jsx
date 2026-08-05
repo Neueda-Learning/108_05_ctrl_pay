@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Dialog, DialogTitle, DialogContent, Chip, Alert } from '@mui/material';
+import { Box, Button, Card, CardContent, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography, Dialog, DialogTitle, DialogContent, Chip, Alert, useTheme } from '@mui/material';
+import { alpha } from '@mui/material/styles';
 import { toast } from 'react-toastify';
 import DownloadIcon from '@mui/icons-material/Download';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
@@ -8,6 +9,8 @@ import api from '../services/api';
 import '../pages/BulkPayments.css';
 
 const BulkPaymentResults = ({ batch, onRetry }) => {
+  const theme = useTheme();
+  const custom = theme.customTokens;
   const [expandedRow, setExpandedRow] = useState(null);
   const [currentBatch, setCurrentBatch] = useState(batch);
   const [loading, setLoading] = useState(false);
@@ -118,17 +121,17 @@ const BulkPaymentResults = ({ batch, onRetry }) => {
             </Box>
           </Box>
 
-          {/* Progress Bar */}
-          {isProcessing && (
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" gutterBottom>
-                Processing: {Math.round(completionPercent)}%
-              </Typography>
-              <Box sx={{ width: '100%', backgroundColor: '#e0e0e0', height: 8, borderRadius: 4, overflow: 'hidden' }}>
-                <Box sx={{ width: `${completionPercent}%`, backgroundColor: '#4caf50', height: '100%', transition: 'width 0.3s' }} />
-              </Box>
-            </Box>
-          )}
+       {/* Progress Bar */}
+           {isProcessing && (
+             <Box sx={{ mb: 3 }}>
+               <Typography variant="body2" gutterBottom>
+                 Processing: {Math.round(completionPercent)}%
+               </Typography>
+               <Box sx={{ width: '100%', backgroundColor: alpha(custom.border, 0.3), height: 8, borderRadius: 4, overflow: 'hidden' }}>
+                 <Box sx={{ width: `${completionPercent}%`, backgroundColor: custom.brand.main, height: '100%', transition: 'width 0.3s' }} />
+               </Box>
+             </Box>
+           )}
 
           {/* Action Buttons */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
@@ -228,7 +231,7 @@ const BulkPaymentResults = ({ batch, onRetry }) => {
             <TableContainer>
               <Table size="small">
                 <TableHead>
-                  <TableRow sx={{ backgroundColor: '#ffebee' }}>
+                  <TableRow sx={{ backgroundColor: alpha(theme.palette.error.main, 0.1) }}>
                     <TableCell>Line</TableCell>
                     <TableCell>Account</TableCell>
                     <TableCell align="right">Amount</TableCell>
@@ -278,14 +281,14 @@ const BulkPaymentResults = ({ batch, onRetry }) => {
               <Typography variant="body2"><strong>Amount:</strong> {selectedErrorDetails.amount} {selectedErrorDetails.currency}</Typography>
               <Typography variant="body2"><strong>Error Code:</strong> {selectedErrorDetails.errorCode}</Typography>
               <Typography variant="body2" sx={{ mt: 2 }}><strong>Error Message:</strong></Typography>
-              <Typography variant="body2" sx={{ p: 1, backgroundColor: '#f5f5f5', borderRadius: 1, wordBreak: 'break-word' }}>
+              <Typography variant="body2" sx={{ p: 1, backgroundColor: custom.mutedOverlay, borderRadius: 1, wordBreak: 'break-word', border: `1px solid ${alpha(custom.border, 0.5)}` }}>
                 {selectedErrorDetails.failureReason}
               </Typography>
 
               {selectedErrorDetails.validationErrors && (
                 <>
                   <Typography variant="body2" sx={{ mt: 2 }}><strong>Validation Errors:</strong></Typography>
-                  <pre style={{ fontSize: '12px', backgroundColor: '#f5f5f5', p: 1, borderRadius: 1, maxHeight: 200, overflow: 'auto' }}>
+                  <pre style={{ fontSize: '12px', backgroundColor: custom.mutedOverlay, padding: '8px', borderRadius: '4px', maxHeight: 200, overflow: 'auto', border: `1px solid ${alpha(custom.border, 0.5)}` }}>
                     {selectedErrorDetails.validationErrors}
                   </pre>
                 </>

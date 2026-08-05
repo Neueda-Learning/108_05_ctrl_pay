@@ -1,7 +1,6 @@
 package com.neueda.controller;
 
 import com.neueda.dto.*;
-import com.neueda.exception.BulkPaymentBatchNotFoundException;
 import com.neueda.exception.BulkPaymentCSVValidationException;
 import com.neueda.service.bulk.BulkPaymentService;
 import org.slf4j.Logger;
@@ -40,11 +39,19 @@ public class BulkPaymentController {
      * Validate CSV file format before submission.
      * This performs client-side validation on the CSV content without persisting.
      * 
+     * Errors are handled by GlobalExceptionHandler which provides user-friendly messages.
+     * 
      * @param file uploaded CSV file
      * @return validation result with error list
+     * @throws IOException if file cannot be read
+     * @throws BulkPaymentCSVValidationException if CSV format is invalid
      */
     @PostMapping("/validate-csv")
-    public ResponseEntity<CSVValidationResultDTO> validateCSV(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<CSVValidationResultDTO> validateCSV(@RequestParam("file") MultipartFile file) throws IOException {
+        if (file.isEmpty()) {
+            throw new BulkPaymentCSVValidationException("File is empty. Please select a valid CSV file.");
+        }
+        
         logger.info("Validating CSV file: {}", file.getOriginalFilename());
         
         try {
@@ -53,11 +60,9 @@ public class BulkPaymentController {
             return ResponseEntity.ok(result);
         } catch (IOException e) {
             logger.error("Error reading CSV file: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest()
-                .body(new CSVValidationResultDTO(
-                    0, 0, 1, false,
-                    List.of(new CSVValidationErrorDTO(0, null, "Failed to read file: " + e.getMessage(), "FILE_READ_ERROR"))
-                ));
+            throw new BulkPaymentCSVValidationException(
+                "Unable to read CSV file. Please ensure the file is not corrupted and try again."
+            );
         }
     }
     
@@ -65,8 +70,12 @@ public class BulkPaymentController {
      * Create a bulk payment batch from CSV upload or manual entry.
      * Initiates the batch processing workflow.
      * 
+     * Errors are handled by GlobalExceptionHandler which provides user-friendly messages.
+     * 
      * @param request bulk payment request with items
      * @return response with batch details and status
+     * @throws BulkPaymentCSVValidationException if validation fails
+     * @throws IllegalArgumentException if request is invalid
      */
     @PostMapping
     public ResponseEntity<BulkPaymentResponseDTO> createBulkPayment(
@@ -75,95 +84,116 @@ public class BulkPaymentController {
         logger.info("Creating bulk payment batch with {} items from account: {}", 
             request.items().size(), request.sourceAccount());
         
-        try {
-            // TODO: Get authenticated user ID from security context
-            String userId = "DEMO_USER"; // Placeholder - replace with actual auth
-            
-            BulkPaymentResponseDTO response = bulkPaymentService.createBulkPayment(request, userId);
-            logger.info("Bulk payment batch created: {}", response.batchReference());
-            return ResponseEntity.accepted().body(response);
-        } catch (BulkPaymentCSVValidationException e) {
-            logger.error("Validation error creating bulk payment: {}", e.getMessage(), e);
-            return ResponseEntity.badRequest().build();
+        if (request.sourceAccount() == null || request.sourceAccount().isEmpty()) {
+            throw new IllegalArgumentException("Source account is required.");
         }
+        
+        if (request.pin() == null || request.pin().isEmpty()) {
+            throw new IllegalArgumentException("PIN is required for bulk payments.");
+        }
+        
+        if (request.items() == null || request.items().isEmpty()) {
+            throw new IllegalArgumentException("At least one payment item is required.");
+        }
+        
+        // TODO: Get authenticated user ID from security context
+        String userId = "DEMO_USER"; // Placeholder - replace with actual auth
+        
+        BulkPaymentResponseDTO response = bulkPaymentService.createBulkPayment(request, userId);
+        logger.info("Bulk payment batch created: {}", response.batchReference());
+        return ResponseEntity.accepted().body(response);
     }
     
     /**
      * Retrieve batch details by ID.
      * 
+     * Errors are handled by GlobalExceptionHandler which provides user-friendly messages.
+     * 
      * @param batchId batch ID
      * @return batch details with transaction results
+     * @throws BulkPaymentBatchNotFoundException if batch is not found
      */
     @GetMapping("/{batchId}")
     public ResponseEntity<BulkPaymentResponseDTO> getBatchDetails(
-        @PathVariable Long batch Id
+        @PathVariable Long batchId
     ) {
-        logger.info("Retrieving bulk payment batch: {}", batchId);
-        
-        try {
-            BulkPaymentResponseDTO response = bulkPaymentService.getBatchDetails(batchId);
-            return ResponseEntity.ok(response);
-        } catch (BulkPaymentBatchNotFoundException e) {
-            logger.warn("Batch not found: {}", batchId);
-            return ResponseEntity.notFound().build();
+        if (batchId == null || batchId <= 0) {
+            throw new IllegalArgumentException("Valid batch ID is required.");
         }
+        
+        logger.info("Retrieving bulk payment batch: {}", batchId);
+        BulkPaymentResponseDTO response = bulkPaymentService.getBatchDetails(batchId);
+        return ResponseEntity.ok(response);
     }
     
     /**
      * Retrieve batch details by batch reference.
      * 
+     * Errors are handled by GlobalExceptionHandler which provides user-friendly messages.
+     * 
      * @param batchReference user-facing batch reference
      * @return batch details with transaction results
+     * @throws BulkPaymentBatchNotFoundException if batch is not found
      */
     @GetMapping("/by-reference/{batchReference}")
     public ResponseEntity<BulkPaymentResponseDTO> getBatchByReference(
         @PathVariable String batchReference
     ) {
-        logger.info("Retrieving bulk payment batch by reference: {}", batchReference);
-        
-        try {
-            BulkPaymentResponseDTO response = bulkPaymentService.getBatchDetailsByReference(batchReference);
-            return ResponseEntity.ok(response);
-        } catch (BulkPaymentBatchNotFoundException e) {
-            logger.warn("Batch reference not found: {}", batchReference);
-            return ResponseEntity.notFound().build();
+        if (batchReference == null || batchReference.isEmpty()) {
+            throw new IllegalArgumentException("Valid batch reference is required.");
         }
+        
+        logger.info("Retrieving bulk payment batch by reference: {}", batchReference);
+        BulkPaymentResponseDTO response = bulkPaymentService.getBatchDetailsByReference(batchReference);
+        return ResponseEntity.ok(response);
     }
     
     /**
      * Get real-time progress of batch processing.
      * Used for UI polling during batch execution.
      * 
+     * Errors are handled by GlobalExceptionHandler which provides user-friendly messages.
+     * 
      * @param batchId batch ID
      * @return progress information
+     * @throws BulkPaymentBatchNotFoundException if batch is not found
      */
     @GetMapping("/{batchId}/progress")
     public ResponseEntity<BulkPaymentProgressDTO> getProgress(
         @PathVariable Long batchId
     ) {
-        logger.debug("Getting progress for batch: {}", batchId);
-        
-        try {
-            BulkPaymentProgressDTO progress = bulkPaymentService.getProgress(batchId);
-            return ResponseEntity.ok(progress);
-        } catch (BulkPaymentBatchNotFoundException e) {
-            return ResponseEntity.notFound().build();
+        if (batchId == null || batchId <= 0) {
+            throw new IllegalArgumentException("Valid batch ID is required.");
         }
+        
+        logger.debug("Getting progress for batch: {}", batchId);
+        BulkPaymentProgressDTO progress = bulkPaymentService.getProgress(batchId);
+        return ResponseEntity.ok(progress);
     }
     
     /**
      * Get batch history for authenticated user.
      * Supports pagination.
      * 
+     * Errors are handled by GlobalExceptionHandler which provides user-friendly messages.
+     * 
      * @param limit max results
      * @param offset pagination offset
      * @return list of batch summaries
+     * @throws IllegalArgumentException if parameters are invalid
      */
     @GetMapping("/history")
     public ResponseEntity<List<BulkPaymentResponseDTO>> getHistory(
         @RequestParam(defaultValue = "20") int limit,
         @RequestParam(defaultValue = "0") int offset
     ) {
+        if (limit <= 0 || limit > 1000) {
+            throw new IllegalArgumentException("Limit must be between 1 and 1000.");
+        }
+        if (offset < 0) {
+            throw new IllegalArgumentException("Offset cannot be negative.");
+        }
+        
         // TODO: Get authenticated user ID from security context
         String userId = "DEMO_USER"; // Placeholder
         
@@ -172,4 +202,5 @@ public class BulkPaymentController {
         return ResponseEntity.ok(history);
     }
 }
+
 

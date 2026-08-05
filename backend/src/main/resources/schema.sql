@@ -462,6 +462,3 @@ INSERT IGNORE INTO fraud_rules (rule_name, rule_type, description, is_active, se
 -- SELECT * FROM fraud_account_risk;
 -- DESC fraud_assessments;
 -- SELECT COUNT(*) FROM fraud_rules WHERE is_active = true;
-
-
-

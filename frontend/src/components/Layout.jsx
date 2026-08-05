@@ -33,6 +33,8 @@ import {
   Menu               as MenuIcon,
   ChevronLeft        as ChevronLeftIcon,
   Logout             as LogoutIcon,
+  Layers             as LayersIcon,
+  Person             as PersonIcon,
 } from '@mui/icons-material';
 
 import { useCustomer } from '../context/CustomerContext';
@@ -50,17 +52,19 @@ const menuSections = [
       { label: 'Home',            icon: DashboardIcon,      path: '/'                },
     ],
   },
-  {
-    label: 'CUSTOMERS',
-    items: [
-      { label: 'Create Customer', icon: PersonAddIcon,      path: '/customers/new'   },
-      { label: 'Create Account',  icon: CreditCardIcon,     path: '/accounts/new'    },
-    ],
-  },
+   {
+     label: 'CUSTOMERS',
+     items: [
+       { label: 'Create Customer', icon: PersonAddIcon,      path: '/customers/new'   },
+       { label: 'Create Account',  icon: CreditCardIcon,     path: '/accounts/new'    },
+       { label: 'View Profile',    icon: PersonIcon,         path: '/profile'         },
+     ],
+   },
   {
     label: 'PAYMENTS',
     items: [
       { label: 'Make Payment',    icon: WalletIcon,         path: '/payments/create' },
+      { label: 'Bulk Payments',   icon: LayersIcon,         path: '/payments/bulk'   },
       { label: 'Payment History', icon: ReceiptIcon,        path: '/payments'        },
     ],
   },

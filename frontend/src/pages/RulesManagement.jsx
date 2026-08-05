@@ -88,10 +88,31 @@ function RulesManagement() {
     try {
       setLoading(true);
       const response = await rulesAPI.listRules();
-      setRules(Array.isArray(response.data) ? response.data : []);
+      console.log('Rules API Response:', response);
+
+      if (response && response.data) {
+        const rulesData = Array.isArray(response.data) ? response.data : [];
+        console.log('Rules Data:', rulesData);
+        setRules(rulesData);
+
+        if (rulesData.length === 0) {
+          toast.info('No validation rules found in database. Create your first rule.');
+        }
+      } else {
+        console.warn('Unexpected response format:', response);
+        toast.warning('Unexpected response format from API');
+        setRules([]);
+      }
     } catch (error) {
       console.error('Error fetching rules:', error);
-      toast.error('Failed to load validation rules');
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.response?.config?.url,
+      });
+      toast.error(`Failed to load validation rules: ${error.response?.data?.message || error.message}`);
+      setRules([]);
     } finally {
       setLoading(false);
     }

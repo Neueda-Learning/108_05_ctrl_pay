@@ -9,10 +9,12 @@ import PaymentsList from './pages/PaymentsList';
 import PaymentDetail from './pages/PaymentDetail';
 import PaymentProcessing from './pages/PaymentProcessing';
 import CreatePayment from './pages/CreatePayment';
+import BulkPayments from './pages/BulkPayments';
 import RulesManagement from './pages/RulesManagement';
 import Analytics from './pages/Analytics';
 import AuthPage from './pages/AuthPage';
 import CustomerProfile from './pages/CustomerProfile';
+import Profile from './pages/Profile';
 import FraudDashboard from './pages/FraudDashboard';
 import FraudRulesManagement from './pages/FraudRulesManagement';
 import { CustomerProvider } from './context/CustomerContext';
@@ -29,8 +31,10 @@ function AppShell() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/customers/new" element={<AuthPage />} />
             <Route path="/accounts/new" element={<CustomerProfile />} />
+            <Route path="/profile" element={<Profile />} />
             <Route path="/payments" element={<PaymentsList />} />
             <Route path="/payments/create" element={<CreatePayment />} />
+            <Route path="/payments/bulk" element={<BulkPayments />} />
             <Route path="/payment/process/:id" element={<PaymentProcessing />} />
             <Route path="/payments/:id" element={<PaymentDetail />} />
             <Route path="/rules" element={<RulesManagement />} />

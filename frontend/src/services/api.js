@@ -169,6 +169,33 @@ export const fraudRulesAPI = {
   deleteRule: (id) => apiClient.delete(`/admin/fraud-rules/${id}`),
 };
 
+// Customer Profile API
+export const profileAPI = {
+  // Get customer profile information
+  getCustomerProfile: (customerId) => apiClient.get(`/customers/${customerId}/profile`),
+
+  // Get customer accounts
+  getAccounts: (customerId) => apiClient.get(`/customers/${customerId}/profile/accounts`),
+
+  // Get account details with transactions
+  getAccountDetails: (customerId, accountNumber) =>
+    apiClient.get(`/customers/${customerId}/profile/accounts/${accountNumber}`),
+
+  // Get customer transactions with pagination
+  getTransactions: (customerId, params) =>
+    apiClient.get(`/customers/${customerId}/profile/transactions`, { params }),
+
+  // Get payment statistics
+  getPaymentStatistics: (customerId) =>
+    apiClient.get(`/customers/${customerId}/profile/payment-statistics`),
+
+  // Get risk information
+  getRiskInformation: (customerId) => apiClient.get(`/customers/${customerId}/profile/risk`),
+
+  // Get bulk payment batches
+  getBulkPayments: (customerId, params) =>
+    apiClient.get(`/customers/${customerId}/profile/bulk-payments`, { params }),
+};
 
 // Health API
 export const healthAPI = {
