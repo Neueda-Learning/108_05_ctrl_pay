@@ -175,11 +175,13 @@ Response Example
     "fraud_probability": 2.5,
     "legitimate_probability": 97.5
 }
+```
 
-Integration Flow
+# Integration Flow
 
 Payment flow:
 
+```
 User makes payment
         |
         |
@@ -192,39 +194,54 @@ Frontend sends transaction details
 ML Service (/predict-json)
         |
         |
- Fraud probability returned
+Fraud probability returned
         |
         |
- Displayed in Payment History
- 
-Model Information
+Displayed in Payment History
+```
 
-Model:
+---
 
+# Model Information
+
+## Model
+
+```
 XGBoost Classifier
+```
 
-Dataset:
+## Dataset
 
+```
 PaySim Financial Transaction Dataset
+```
 
 The model predicts whether a transaction is potentially fraudulent based on transaction features.
 
-Important Notes
-The ML service only provides fraud risk information.
-It does not block or reject payments.
-Payment workflow remains unchanged.
-The fraud score is used for risk visualization.
-Development
+---
+
+# Important Notes
+
+- The ML service only provides fraud risk information.
+- It does not block or reject payments.
+- Payment workflow remains unchanged.
+- The fraud score is used for risk visualization.
+
+---
+
+# Development
 
 Run Flask in development mode:
 
+```bash
 python app.py
+```
 
 For production deployment, use a production WSGI server.
 
+---
 
-
- `.gitignore` contain:
+# Git Ignore Configuration
 
 ```gitignore
 venv/
@@ -232,3 +249,4 @@ __pycache__/
 *.pyc
 .env
 .ipynb_checkpoints/
+```
