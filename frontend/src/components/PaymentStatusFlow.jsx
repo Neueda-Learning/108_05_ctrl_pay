@@ -236,10 +236,10 @@ function PaymentStatusFlow({
           sx={{
             mt: 3,
             p: 2,
-            backgroundColor: 'grey.50',
+            backgroundColor: 'background.default',
             borderRadius: 1,
             border: '1px solid',
-            borderColor: 'grey.200',
+            borderColor: 'divider',
           }}
         >
           <Grid container spacing={2}>
