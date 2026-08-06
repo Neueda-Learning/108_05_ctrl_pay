@@ -34,11 +34,7 @@ class AmountRangeRuleTest {
     @Test
     @DisplayName("execute: Passes when amount is within min and max")
     void execute_Pass() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", "111122223333", "444455556666", BigDecimal.valueOf(500), "USD",
-            BigDecimal.valueOf(500), BigDecimal.valueOf(500), BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
-        );
+        PaymentRecord payment = PaymentRecord.create(null, "111122223333", "444455556666", BigDecimal.valueOf(500), "USD");
 
         ValidationRuleResult result = rule.execute(payment, ruleDefinition);
 
@@ -48,11 +44,7 @@ class AmountRangeRuleTest {
     @Test
     @DisplayName("execute: Fails when amount is above max limit")
     void execute_ExceedsMax() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", "111122223333", "444455556666", BigDecimal.valueOf(2000), "USD",
-            BigDecimal.valueOf(2000), BigDecimal.valueOf(2000), BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
-        );
+        PaymentRecord payment = PaymentRecord.create(null, "111122223333", "444455556666", BigDecimal.valueOf(2000), "USD");
 
         ValidationRuleResult result = rule.execute(payment, ruleDefinition);
 

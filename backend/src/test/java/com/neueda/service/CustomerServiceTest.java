@@ -35,17 +35,27 @@ class CustomerServiceTest {
     void setUp() {
         customerService = new CustomerService(customerRepository);
         sampleCustomer = new CustomerRecord(
-            1L, "Alice Smith", LocalDate.of(1990, 1, 1), "+1234567890", "ABCDE1234F",
-            java.time.LocalDateTime.now(), java.time.LocalDateTime.now(), "US", CustomerStatus.ACTIVE
+            1L,
+            "Alice Smith",
+            LocalDate.of(1990, 1, 1),
+            "+1234567890",
+            "ABCDE1234F",
+            java.time.LocalDateTime.now(),
+            java.time.LocalDateTime.now(),
+            "US",
+            CustomerStatus.ACTIVE
         );
     }
 
     @Test
     @DisplayName("createCustomer: Should normalize PAN and save customer")
     void createCustomer_Success() {
-        CustomerRecord request = new CustomerRecord(
-            null, "Alice Smith", LocalDate.of(1990, 1, 1), "+1234567890", " abcde1234f ",
-            null, null, "US", CustomerStatus.ACTIVE
+        CustomerRecord request = CustomerRecord.create(
+            "Alice Smith",
+            LocalDate.of(1990, 1, 1),
+            "+1234567890",
+            "ABCDE1234F",
+            "US"
         );
 
         when(customerRepository.existsByPanNumber("ABCDE1234F")).thenReturn(false);
@@ -61,9 +71,12 @@ class CustomerServiceTest {
     @Test
     @DisplayName("createCustomer: Should throw CustomerValidationException if PAN exists")
     void createCustomer_DuplicatePan() {
-        CustomerRecord request = new CustomerRecord(
-            null, "Alice Smith", LocalDate.of(1990, 1, 1), "+1234567890", "ABCDE1234F",
-            null, null, "US", CustomerStatus.ACTIVE
+        CustomerRecord request = CustomerRecord.create(
+            "Alice Smith",
+            LocalDate.of(1990, 1, 1),
+            "+1234567890",
+            "ABCDE1234F",
+            "US"
         );
 
         when(customerRepository.existsByPanNumber("ABCDE1234F")).thenReturn(true);
