@@ -55,13 +55,8 @@ public class PaymentController {
     public ResponseEntity<PaymentResponse> createPayment(@Valid @RequestBody CreatePaymentRequest request) {
         try {
             // Step 1: Verify PIN for source account
-            try {
-                accountService.verifyAccountPinByAccountNumber(request.sourceAccount(), request.pin());
-            } catch (Exception e) {
-                throw new AccountValidationException("PIN verification failed: " + e.getMessage(), 
-                    "INVALID_PIN");
-            }
-            
+            accountService.verifyAccountPinByAccountNumber(request.sourceAccount(), request.pin());
+
             // Step 2: Convert DTO to domain model
             // Check if exchange rate information is provided
             PaymentRecord newPayment;
@@ -90,18 +85,21 @@ public class PaymentController {
             
             // Step 3: Create payment (executes validation, logs audit trail, handles idempotency)
             PaymentRecord savedPayment = paymentService.createPayment(newPayment);
-            
+
             // Step 4: Convert domain model to response DTO
             PaymentResponse response = toPaymentResponse(savedPayment);
-            
+
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
-            
+
         } catch (AccountValidationException e) {
-            // 401 Unauthorized: PIN verification failed
+            // 400 Bad Request: PIN verification/account validation failed
+            throw e;
+        } catch (PaymentValidationException e) {
+            // Preserve explicit validation failures from service layer
             throw e;
         } catch (IllegalArgumentException e) {
             // 400 Bad Request: Invalid input
-            throw new PaymentValidationException("Invalid payment details: " + e.getMessage(), 
+            throw new PaymentValidationException("Invalid payment details: " + e.getMessage(),
                 "VALIDATION_FAILED");
         } catch (Exception e) {
             // 500 Internal Server Error
