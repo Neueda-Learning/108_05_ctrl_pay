@@ -175,6 +175,7 @@ Response Example
     "fraud_probability": 2.5,
     "legitimate_probability": 97.5
 }
+
 Integration Flow
 
 Payment flow:
@@ -191,10 +192,11 @@ Frontend sends transaction details
 ML Service (/predict-json)
         |
         |
-Fraud probability returned
+ Fraud probability returned
         |
         |
-Displayed in Payment History
+ Displayed in Payment History
+ 
 Model Information
 
 Model:
