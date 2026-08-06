@@ -152,9 +152,9 @@ function Layout({ children }) {
     { label: 'Transactions', icon: BarChartIcon, path: '/dashboard/transactions' },
     { label: 'Fraud & Risk', icon: SecurityIcon, path: '/dashboard/fraud' },
     { label: 'Customer Analytics', icon: PeopleIcon, path: '/dashboard/customers' },
-    { label: 'Bulk Payments', icon: LayersIcon, path: '/dashboard/bulk-payments' },
+//     { label: 'Bulk Payments', icon: LayersIcon, path: '/dashboard/bulk-payments' },
     { label: 'ML Model', icon: SmartToyIcon, path: '/dashboard/ml' },
-    { label: 'Compliance', icon: GavelIcon, path: '/dashboard/compliance' },
+//     { label: 'Compliance', icon: GavelIcon, path: '/dashboard/compliance' },
   ];
 
    const rulesMenuItems = [
