@@ -605,3 +605,416 @@ INSERT IGNORE INTO fraud_rules (rule_name, rule_type, description, is_active, se
 -- SELECT * FROM fraud_account_risk;
 -- DESC fraud_assessments;
 -- SELECT COUNT(*) FROM fraud_rules WHERE is_active = true;
+
+-- Ctrl Pay Sample Data
+-- Run after schema.sql
+-- Contains only environment sample data
+
+USE ctrl_pay;
+
+SET FOREIGN_KEY_CHECKS = 0;
+
+
+-- ========================================
+-- CUSTOMERS
+-- ========================================
+
+INSERT IGNORE INTO customers
+(customer_id,name,dob,phone_number,pan_number,country,customer_account_status)
+VALUES
+(1,'John Smith','1990-01-10','+353871111111','ABCDE1234F','Ireland','ACTIVE'),
+(2,'Emma Watson','1988-04-15','+353872222222','FGHIJ2345K','Ireland','ACTIVE'),
+(3,'Raj Kumar','1992-06-20','+919876543210','KLMNO3456P','India','ACTIVE'),
+(4,'Sophia Brown','1985-11-05','+447700900111','PQRST4567L','UK','ACTIVE'),
+(5,'Michael Lee','1979-09-12','+14155552671','UVWXY5678M','USA','PASSIVE');
+
+
+-- ========================================
+-- ACCOUNTS
+-- PIN = 1234
+-- ========================================
+
+INSERT IGNORE INTO accounts
+(account_id,customer_id,account_number,account_name,
+account_balance,account_status,currency,
+account_opening_date,ifsc_code,
+account_location,bank_name,account_pin_hash)
+VALUES
+(1,1,'100000000001','John USD Account',
+50000,'ACTIVE','USD',
+'2020-01-01','HDFC0123456',
+'Dublin','Ctrl Bank','1234'),
+
+(2,1,'100000000002','John EUR Account',
+25000,'ACTIVE','EUR',
+'2021-01-01','HDFC0123457',
+'Dublin','Ctrl Bank','1234'),
+
+(3,2,'100000000003','Emma GBP Account',
+30000,'ACTIVE','GBP',
+'2019-05-10','HDFC0123458',
+'London','Ctrl Bank','1234'),
+
+(4,3,'100000000004','Raj INR Account',
+500000,'ACTIVE','INR',
+'2022-02-20','HDFC0123459',
+'Mumbai','Ctrl Bank','1234'),
+
+(5,4,'100000000005','Sophia USD Account',
+100,'SUSPICIOUS','USD',
+'2023-03-03','HDFC0123460',
+'London','Ctrl Bank','1234'),
+
+(6,5,'100000000006','Michael CAD Account',
+1000,'ACTIVE','CAD',
+'2020-08-08','HDFC0123461',
+'Toronto','Ctrl Bank','1234');
+
+
+-- ========================================
+-- PAYMENTS
+-- ========================================
+
+INSERT IGNORE INTO payments
+(id,idempotency_key,
+source_account,destination_account,
+amount,currency,
+source_amount,destination_amount,
+exchange_rate,status,
+error_code,error_message,
+settlement_attempt_count,
+max_settlement_attempts,
+settled_at)
+VALUES
+
+(1,'PAY-001',
+'100000000001',
+'100000000003',
+500,'USD',
+500,450,
+0.9,
+'COMPLETED',
+NULL,NULL,
+1,3,NOW()),
+
+
+(2,'PAY-002',
+'100000000003',
+'100000000001',
+1000,'GBP',
+1000,1200,
+1.2,
+'COMPLETED',
+NULL,NULL,
+1,3,NOW()),
+
+
+(3,'PAY-003',
+'100000000001',
+'100000000004',
+100000,'USD',
+100000,8300000,
+83,
+'FAILED',
+'INSUFFICIENT_FUNDS',
+'Insufficient funds after validation',
+3,3,NULL),
+
+
+(4,'PAY-004',
+'100000000004',
+'100000000005',
+25000,'INR',
+25000,300,
+0.012,
+'SUSPICIOUS',
+'FRAUD_REVIEW',
+'Transaction requires fraud review',
+0,3,NULL),
+
+
+(5,'PAY-005',
+'100000000002',
+'100000000006',
+500,'EUR',
+500,700,
+1.4,
+'SENT',
+NULL,NULL,
+0,3,NULL);
+
+
+
+-- ========================================
+-- PAYMENT STATUS HISTORY
+-- ========================================
+
+INSERT IGNORE INTO payment_status_history
+(payment_id,old_status,new_status,triggered_by)
+VALUES
+
+(1,NULL,'CREATED','USER'),
+(1,'CREATED','VALIDATED','SYSTEM'),
+(1,'VALIDATED','SENT','SCHEDULER'),
+(1,'SENT','COMPLETED','SCHEDULER'),
+
+(2,NULL,'CREATED','USER'),
+(2,'CREATED','VALIDATED','SYSTEM'),
+(2,'VALIDATED','SENT','SCHEDULER'),
+(2,'SENT','COMPLETED','SCHEDULER'),
+
+(3,NULL,'CREATED','USER'),
+(3,'CREATED','FAILED','SYSTEM'),
+
+(4,NULL,'CREATED','USER'),
+(4,'CREATED','VALIDATED','SYSTEM'),
+(4,'VALIDATED','SUSPICIOUS','SYSTEM'),
+
+(5,NULL,'CREATED','USER'),
+(5,'CREATED','VALIDATED','SYSTEM'),
+(5,'VALIDATED','SENT','SCHEDULER');
+
+
+
+-- ========================================
+-- FRAUD ASSESSMENTS
+-- ========================================
+
+INSERT IGNORE INTO fraud_assessments
+(payment_id,
+hybrid_fraud_score,
+rule_engine_score,
+ml_fraud_probability,
+triggered_rules_json,
+rule_scores_json,
+decision,
+risk_level,
+explanation)
+VALUES
+
+(1,
+10,
+5,
+8,
+'[]',
+'{"ML":8}',
+'APPROVED',
+'LOW',
+'Normal payment'),
+
+
+(3,
+90,
+85,
+92,
+'["LARGE_TRANSACTION_RULE","ML_FRAUD_RULE"]',
+'{"LARGE_TRANSACTION_RULE":85,"ML_FRAUD_RULE":92}',
+'REJECTED',
+'CRITICAL',
+'High fraud probability'),
+
+
+(4,
+60,
+55,
+70,
+'["ML_FRAUD_RULE"]',
+'{"ML_FRAUD_RULE":70}',
+'SUSPICIOUS',
+'HIGH',
+'Manual review required');
+
+
+
+-- ========================================
+-- ML PREDICTIONS
+-- ========================================
+
+INSERT IGNORE INTO ml_model_predictions
+(
+ml_model_id,
+payment_id,
+assessment_id,
+predicted_fraud_probability,
+prediction_confidence,
+prediction_latency_ms,
+ground_truth_fraud,
+ground_truth_source,
+is_correct_prediction,
+prediction_type
+)
+VALUES
+
+(1,1,1,8,95,120,
+FALSE,'AUDIT',TRUE,'TRUE_NEGATIVE'),
+
+(1,3,2,92,96,150,
+TRUE,'AUDIT',TRUE,'TRUE_POSITIVE'),
+
+(1,4,3,70,85,NULL,
+NULL,NULL,NULL,NULL);
+
+
+
+-- ========================================
+-- FRAUD ACCOUNT RISK
+-- ========================================
+
+INSERT IGNORE INTO fraud_account_risk
+(account_number,
+rejection_count,
+window_start,
+window_end,
+latest_rejection_at)
+VALUES
+
+('100000000004',
+2,
+DATE_SUB(NOW(),INTERVAL 30 DAY),
+NOW(),
+NOW()),
+
+('100000000005',
+1,
+DATE_SUB(NOW(),INTERVAL 30 DAY),
+NOW(),
+NOW());
+
+
+
+-- ========================================
+-- FRAUD AUDIT EVENTS
+-- ========================================
+
+INSERT IGNORE INTO fraud_audit_events
+(assessment_id,event_type,event_timestamp,triggered_by,event_data)
+VALUES
+
+(1,'FRAUD_ASSESSMENT_CREATED',NOW(),'SYSTEM',
+'{"decision":"APPROVED"}'),
+
+(2,'FRAUD_ASSESSMENT_CREATED',NOW(),'SYSTEM',
+'{"decision":"REJECTED"}'),
+
+(3,'MANUAL_REVIEW_REQUIRED',NOW(),'SYSTEM',
+'{"decision":"SUSPICIOUS"}');
+
+
+
+-- ========================================
+-- BULK PAYMENT DATA
+-- ========================================
+
+INSERT IGNORE INTO bulk_payment_batches
+(
+id,
+batch_reference,
+idempotency_key,
+source_account,
+total_transactions,
+successful_transactions,
+failed_transactions,
+total_amount,
+status,
+created_by
+)
+VALUES
+
+(
+1,
+'BP202608060001',
+'BULK-001',
+'100000000001',
+3,
+2,
+1,
+3000,
+'PARTIALLY_COMPLETED',
+'customer1'
+);
+
+
+
+INSERT IGNORE INTO bulk_payment_items
+(
+batch_id,
+payment_id,
+idempotency_key,
+line_number,
+destination_account,
+amount,
+currency,
+description,
+status,
+error_code,
+failure_reason,
+fraud_score,
+fraud_decision
+)
+VALUES
+
+(
+1,
+1,
+'BULK-ITEM-001',
+1,
+'100000000003',
+1000,
+'USD',
+'Salary',
+'SUCCESS',
+NULL,
+NULL,
+10,
+'APPROVED'
+),
+
+
+(
+1,
+2,
+'BULK-ITEM-002',
+2,
+'100000000004',
+1500,
+'USD',
+'Invoice',
+'SUCCESS',
+NULL,
+NULL,
+20,
+'APPROVED'
+),
+
+
+(
+1,
+NULL,
+'BULK-ITEM-003',
+3,
+'999999999999',
+500,
+'USD',
+'Invalid account',
+'FAILED',
+'INVALID_ACCOUNT',
+'Destination account not found',
+80,
+'REJECTED'
+);
+
+
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+
+
+-- ========================================
+-- VERIFICATION
+-- ========================================
+
+SELECT COUNT(*) AS customers FROM customers;
+SELECT COUNT(*) AS accounts FROM accounts;
+SELECT COUNT(*) AS payments FROM payments;
+SELECT COUNT(*) AS fraud_assessments FROM fraud_assessments;
+SELECT COUNT(*) AS bulk_batches FROM bulk_payment_batches;
