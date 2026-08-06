@@ -91,6 +91,10 @@ public class BulkPaymentController {
         if (request.pin() == null || request.pin().isEmpty()) {
             throw new IllegalArgumentException("PIN is required for bulk payments.");
         }
+
+        if (!request.pin().matches("^[0-9]{4}$")) {
+            throw new IllegalArgumentException("PIN must be exactly 4 digits.");
+        }
         
         if (request.items() == null || request.items().isEmpty()) {
             throw new IllegalArgumentException("At least one payment item is required.");

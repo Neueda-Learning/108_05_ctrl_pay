@@ -127,7 +127,7 @@ public class AccountService {
      * Useful for payment processing where we have account number not ID.
      * 
      * @param accountNumber 12-digit account number
-     * @param pin 4-6 digit PIN to verify
+    * @param pin 4-digit PIN to verify
      * @return true if PIN matches
      * @throws AccountValidationException if account not found or PIN is invalid
      */

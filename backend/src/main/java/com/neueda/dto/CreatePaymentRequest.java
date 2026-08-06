@@ -51,11 +51,11 @@ public record CreatePaymentRequest(
     String idempotencyKey,
     
     /**
-     * PIN for source account authentication (4-6 digits).
+     * PIN for source account authentication (exactly 4 digits).
      * Required to verify account ownership before processing payment.
      */
     @NotBlank(message = "PIN is required")
-    @Pattern(regexp = "^[0-9]{4,6}$", message = "PIN must be 4 to 6 digits")
+    @Pattern(regexp = "^[0-9]{4}$", message = "PIN must be exactly 4 digits")
     String pin,
     
     /**

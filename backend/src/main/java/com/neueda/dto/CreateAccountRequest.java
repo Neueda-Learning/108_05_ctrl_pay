@@ -43,7 +43,7 @@ public record CreateAccountRequest(
     String bankName,
 
     @NotBlank(message = "Account PIN is required")
-    @Pattern(regexp = "^[0-9]{4,6}$", message = "Account PIN must be 4 to 6 digits")
+    @Pattern(regexp = "^[0-9]{4}$", message = "Account PIN must be exactly 4 digits")
     String accountPin
 ) {
 }

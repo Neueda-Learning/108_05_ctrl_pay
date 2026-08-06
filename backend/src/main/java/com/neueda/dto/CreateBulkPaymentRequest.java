@@ -1,5 +1,7 @@
 package com.neueda.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -14,8 +16,10 @@ public record CreateBulkPaymentRequest(
     String sourceAccount,
     
     /**
-     * PIN for source account authentication (4-6 digits).
+     * PIN for source account authentication (exactly 4 digits).
      */
+    @NotBlank(message = "PIN is required")
+    @Pattern(regexp = "^[0-9]{4}$", message = "PIN must be exactly 4 digits")
     String pin,
     
     /**
