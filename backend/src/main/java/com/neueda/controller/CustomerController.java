@@ -300,7 +300,7 @@ public class CustomerController {
         } catch (CustomerNotFoundException e) {
             throw e;
         } catch (Exception e) {
-            throw new com.neueda.exception.PaymentProcessingException("Error retrieving customer profile: " + e.getMessage());
+            throw new com.neueda.exception.ServiceException("Error retrieving customer profile: " + e.getMessage(), "PROFILE_RETRIEVAL_ERROR");
         }
     }
 
@@ -316,7 +316,7 @@ public class CustomerController {
         } catch (CustomerNotFoundException e) {
             throw e;
         } catch (Exception e) {
-            throw new com.neueda.exception.PaymentProcessingException("Error retrieving customer accounts: " + e.getMessage());
+            throw new com.neueda.exception.ServiceException("Error retrieving customer accounts: " + e.getMessage(), "ACCOUNTS_RETRIEVAL_ERROR");
         }
     }
 
@@ -339,7 +339,7 @@ public class CustomerController {
         } catch (com.neueda.exception.AccountValidationException e) {
             throw e;
         } catch (Exception e) {
-            throw new com.neueda.exception.PaymentProcessingException("Error retrieving account details: " + e.getMessage());
+            throw new com.neueda.exception.ServiceException("Error retrieving account details: " + e.getMessage(), "ACCOUNT_DETAILS_ERROR");
         }
     }
 
@@ -410,7 +410,7 @@ public class CustomerController {
         } catch (com.neueda.exception.AccountValidationException e) {
             throw e;
         } catch (Exception e) {
-            throw new com.neueda.exception.PaymentProcessingException("Error retrieving transactions: " + e.getMessage());
+            throw new com.neueda.exception.ServiceException("Error retrieving transactions: " + e.getMessage(), "TRANSACTIONS_RETRIEVAL_ERROR");
         }
     }
 
@@ -426,7 +426,7 @@ public class CustomerController {
         } catch (CustomerNotFoundException e) {
             throw e;
         } catch (Exception e) {
-            throw new com.neueda.exception.PaymentProcessingException("Error retrieving payment statistics: " + e.getMessage());
+            throw new com.neueda.exception.ServiceException("Error retrieving payment statistics: " + e.getMessage(), "STATISTICS_RETRIEVAL_ERROR");
         }
     }
 
@@ -442,7 +442,7 @@ public class CustomerController {
         } catch (CustomerNotFoundException e) {
             throw e;
         } catch (Exception e) {
-            throw new com.neueda.exception.PaymentProcessingException("Error retrieving risk information: " + e.getMessage());
+            throw new com.neueda.exception.ServiceException("Error retrieving risk information: " + e.getMessage(), "RISK_RETRIEVAL_ERROR");
         }
     }
 

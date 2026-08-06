@@ -408,36 +408,36 @@ function Profile() {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ background: alpha('success.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.success.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Successful Payments
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: 'success.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: theme.palette.success.main }}>
                   {statistics.successfulPayments}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ background: alpha('error.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.error.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Failed Payments
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: 'error.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: theme.palette.error.main }}>
                   {statistics.failedPayments}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ background: alpha('warning.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.warning.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Rejected Payments
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: 'warning.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: theme.palette.warning.main }}>
                   {statistics.rejectedPayments}
                 </Typography>
               </CardContent>
@@ -507,24 +507,24 @@ function Profile() {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: alpha('warning.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.warning.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Fraud Flags
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: 'warning.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: theme.palette.warning.main }}>
                   {riskInfo.fraudFlags}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: alpha('error.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.error.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Rejected Payments
                 </Typography>
-                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: 'error.main' }}>
+                <Typography variant="h4" sx={{ fontWeight: 600, mt: 1, color: theme.palette.error.main }}>
                   {riskInfo.rejectedTransactions}
                 </Typography>
               </CardContent>

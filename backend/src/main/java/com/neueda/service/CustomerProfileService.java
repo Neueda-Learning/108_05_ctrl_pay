@@ -291,7 +291,9 @@ public class CustomerProfileService {
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // Calculate average transaction amount
-        BigDecimal averageAmount = total > 0 ? totalAmount.divide(new BigDecimal(total)) : BigDecimal.ZERO;
+        BigDecimal averageAmount = total > 0 ? 
+            totalAmount.divide(new BigDecimal(total), 2, java.math.RoundingMode.HALF_UP) : 
+            BigDecimal.ZERO;
 
         return new CustomerPaymentStatisticsDTO(
             total,

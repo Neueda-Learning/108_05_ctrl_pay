@@ -174,6 +174,25 @@ public class GlobalExceptionHandler {
     }
     
     /**
+     * Handle ServiceException (500 Internal Server Error).
+     * Generic exception for service-level errors in customer profile, accounts, and other non-payment operations.
+     */
+    @ExceptionHandler(ServiceException.class)
+    public ResponseEntity<ErrorResponse> handleServiceException(
+        ServiceException ex,
+        WebRequest request
+    ) {
+        logger.error("Service error [{}]: {}", ex.getErrorCode(), ex.getMessage(), ex);
+        ErrorResponse response = ErrorResponse.of(
+            ex.getErrorCode(),
+            "An error occurred while processing your request. Please try again later or contact support.",
+            HttpStatus.INTERNAL_SERVER_ERROR.value(),
+            request.getDescription(false).replace("uri=", "")
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+    }
+    
+    /**
      * Handle Bulk Payment CSV validation exceptions (400 Bad Request).
      */
     @ExceptionHandler(BulkPaymentCSVValidationException.class)
