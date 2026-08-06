@@ -76,7 +76,7 @@ class PaymentReceiptControllerTest {
         mockMvc.perform(get("/api/customers/42/payments/1001/receipt"))
             .andExpect(status().isForbidden())
             .andExpect(jsonPath("$.errorCode").value("RECEIPT_ACCESS_DENIED"))
-            .andExpect(jsonPath("$.message", containsString("not authorized")));
+            .andExpect(jsonPath("$.message", containsString("permission")));
     }
 
     private PaymentRecord completedPayment() {
