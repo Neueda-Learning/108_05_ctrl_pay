@@ -172,6 +172,30 @@ public class BulkPaymentController {
     }
     
     /**
+     * Get enhanced status of batch processing with individual payment details.
+     * Returns complete transaction status for each item in the batch.
+     * Used for real-time UI polling with detailed status information.
+     * 
+     * Errors are handled by GlobalExceptionHandler which provides user-friendly messages.
+     * 
+     * @param batchId batch ID
+     * @return enhanced status with individual payment details
+     * @throws BulkPaymentBatchNotFoundException if batch is not found
+     */
+    @GetMapping("/{batchId}/status")
+    public ResponseEntity<BulkPaymentStatusDTO> getStatus(
+        @PathVariable Long batchId
+    ) {
+        if (batchId == null || batchId <= 0) {
+            throw new IllegalArgumentException("Valid batch ID is required.");
+        }
+        
+        logger.debug("Getting enhanced status for batch: {}", batchId);
+        BulkPaymentStatusDTO status = bulkPaymentService.getStatus(batchId);
+        return ResponseEntity.ok(status);
+    }
+    
+    /**
      * Get batch history for authenticated user.
      * Supports pagination.
      * 

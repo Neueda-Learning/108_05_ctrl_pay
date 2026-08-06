@@ -481,6 +481,25 @@ CREATE TABLE IF NOT EXISTS ml_models (
     INDEX idx_model_name (model_name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='ML model versioning and deployment tracking';
 
+-- ========================================
+-- MIGRATION: Add idempotency_key column to bulk_payment_items
+-- ========================================
+SET @idempotency_key_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'bulk_payment_items'
+      AND column_name = 'idempotency_key'
+);
+SET @add_idempotency_key_sql = IF(
+    @idempotency_key_exists = 0,
+    'ALTER TABLE bulk_payment_items ADD COLUMN idempotency_key VARCHAR(255) NULL COMMENT ''Idempotency key for this bulk payment item (generated during processing)'' AFTER payment_id',
+    'SELECT 1'
+);
+PREPARE add_idempotency_key_stmt FROM @add_idempotency_key_sql;
+EXECUTE add_idempotency_key_stmt;
+DEALLOCATE PREPARE add_idempotency_key_stmt;
+
 -- TABLE: ml_model_predictions (Phase 1 - Prediction Tracking)
 CREATE TABLE IF NOT EXISTS ml_model_predictions (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,

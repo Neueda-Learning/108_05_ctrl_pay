@@ -39,6 +39,7 @@ public class BulkPaymentItemRepositoryImpl implements BulkPaymentItemRepository 
                 rs.getLong("id"),
                 rs.getLong("batch_id"),
                 rs.getLong("payment_id") != 0 ? rs.getLong("payment_id") : null,
+                rs.getString("idempotency_key"),
                 rs.getInt("line_number"),
                 rs.getString("destination_account"),
                 rs.getBigDecimal("amount"),
@@ -62,12 +63,13 @@ public class BulkPaymentItemRepositoryImpl implements BulkPaymentItemRepository 
     @Override
     public BulkPaymentItemRecord create(BulkPaymentItemRecord item) {
         String sql = "INSERT INTO bulk_payment_items (" +
-            "batch_id, payment_id, line_number, destination_account, amount, currency, description, status, created_at) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            "batch_id, payment_id, idempotency_key, line_number, destination_account, amount, currency, description, status, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         jdbcTemplate.update(sql,
             item.batchId(),
             item.paymentId(),
+            item.idempotencyKey(),
             item.lineNumber(),
             item.destinationAccount(),
             item.amount(),
@@ -85,6 +87,7 @@ public class BulkPaymentItemRepositoryImpl implements BulkPaymentItemRepository 
             id,
             item.batchId(),
             item.paymentId(),
+            item.idempotencyKey(),
             item.lineNumber(),
             item.destinationAccount(),
             item.amount(),
@@ -107,13 +110,14 @@ public class BulkPaymentItemRepositoryImpl implements BulkPaymentItemRepository 
     @Override
     public void createBatch(List<BulkPaymentItemRecord> items) {
         String sql = "INSERT INTO bulk_payment_items (" +
-            "batch_id, payment_id, line_number, destination_account, amount, currency, description, status, created_at) " +
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            "batch_id, payment_id, idempotency_key, line_number, destination_account, amount, currency, description, status, created_at) " +
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         for (BulkPaymentItemRecord item : items) {
             jdbcTemplate.update(sql,
                 item.batchId(),
                 item.paymentId(),
+                item.idempotencyKey(),
                 item.lineNumber(),
                 item.destinationAccount(),
                 item.amount(),
@@ -151,13 +155,14 @@ public class BulkPaymentItemRepositoryImpl implements BulkPaymentItemRepository 
     @Override
     public void update(BulkPaymentItemRecord item) {
         String sql = "UPDATE bulk_payment_items SET " +
-            "payment_id = ?, status = ?, error_code = ?, failure_reason = ?, " +
+            "payment_id = ?, idempotency_key = ?, status = ?, error_code = ?, failure_reason = ?, " +
             "fraud_score = ?, fraud_decision = ?, validation_errors = ?, rollback_status = ?, " +
             "validated_at = ?, processing_started_at = ?, completed_at = ? " +
             "WHERE id = ?";
         
         jdbcTemplate.update(sql,
             item.paymentId(),
+            item.idempotencyKey(),
             item.status().toString(),
             item.errorCode(),
             item.failureReason(),

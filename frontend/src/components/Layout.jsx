@@ -75,9 +75,10 @@ const menuSections = [
   {
     label: 'PAYMENTS',
     items: [
-      { label: 'Make Payment',    icon: WalletIcon,         path: '/payments/create' },
-      { label: 'Bulk Payments',   icon: LayersIcon,         path: '/payments/bulk'   },
-      { label: 'Payment History', icon: ReceiptIcon,        path: '/payments'        },
+      { label: 'Make Payment',           icon: WalletIcon,         path: '/payments/create' },
+      { label: 'Bulk Payments',          icon: LayersIcon,         path: '/payments/bulk'   },
+      { label: 'Payment History',        icon: ReceiptIcon,        path: '/payments'        },
+      { label: 'Bulk Payment History',   icon: ReceiptIcon,        path: '/payments/bulk-history' },
     ],
   },
   {

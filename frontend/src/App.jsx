@@ -10,6 +10,8 @@ import PaymentDetail from './pages/PaymentDetail';
 import PaymentProcessing from './pages/PaymentProcessing';
 import CreatePayment from './pages/CreatePayment';
 import BulkPayments from './pages/BulkPayments';
+import BulkPaymentHistory from './pages/BulkPaymentHistory';
+import BulkPaymentDetails from './pages/BulkPaymentDetails';
 import RulesManagement from './pages/RulesManagement';
 import Analytics from './pages/Analytics';
 import AuthPage from './pages/AuthPage';
@@ -43,6 +45,8 @@ function AppShell() {
             <Route path="/payments" element={<PaymentsList />} />
             <Route path="/payments/create" element={<CreatePayment />} />
             <Route path="/payments/bulk" element={<BulkPayments />} />
+            <Route path="/payments/bulk-history" element={<BulkPaymentHistory />} />
+            <Route path="/bulk-payments/:batchId" element={<BulkPaymentDetails />} />
             <Route path="/payment/process/:id" element={<PaymentProcessing />} />
             <Route path="/payments/:id" element={<PaymentDetail />} />
             <Route path="/rules" element={<RulesManagement />} />

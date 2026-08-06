@@ -419,7 +419,139 @@ public class BulkPaymentService {
         return batches.stream().map(this::convertBatchToResponse).collect(Collectors.toList());
     }
     
-    // ==================== PRIVATE HELPER METHODS ====================
+    /**
+     * Get enhanced status of batch processing with individual payment details.
+     * Used for real-time UI polling with complete transaction information.
+     * 
+     * Returns:
+     * - Batch status and progress
+     * - Individual payment statuses
+     * - Failure reasons for failed payments
+     */
+    public BulkPaymentStatusDTO getStatus(Long batchId) throws BulkPaymentBatchNotFoundException {
+        BulkPaymentBatchRecord batch = batchRepository.findById(batchId)
+            .orElseThrow(() -> new BulkPaymentBatchNotFoundException(batchId));
+        
+        // Fetch items with their payment details
+        List<BulkPaymentItemRecord> items = itemRepository.findByBatchId(batchId);
+        
+        // Count items by status
+        int processingCount = (int) items.stream()
+            .filter(item -> item.status() == BulkPaymentItemStatus.PROCESSING || item.status() == BulkPaymentItemStatus.VALIDATING)
+            .count();
+        int completedCount = (int) items.stream()
+            .filter(item -> item.status() == BulkPaymentItemStatus.SUCCESS)
+            .count();
+        int failedCount = (int) items.stream()
+            .filter(item -> item.status() == BulkPaymentItemStatus.FAILED || item.status() == BulkPaymentItemStatus.ROLLED_BACK)
+            .count();
+        
+        int totalCount = batch.totalTransactions();
+        int progressPercent = totalCount > 0 ? (int) ((completedCount + failedCount) * 100 / totalCount) : 0;
+        
+        // Build individual payment statuses
+        List<BulkPaymentStatusDTO.BatchPaymentStatusDTO> paymentStatuses = items.stream()
+            .map(item -> new BulkPaymentStatusDTO.BatchPaymentStatusDTO(
+                item.paymentId(),
+                item.idempotencyKey(),
+                item.lineNumber(),
+                item.destinationAccount(),
+                item.amount(),
+                item.currency(),
+                item.status().toString(),
+                item.failureReason(),
+                item.errorCode()
+            ))
+            .collect(Collectors.toList());
+        
+        LocalDateTime lastUpdate = batch.processingCompletedAt() != null ?
+            batch.processingCompletedAt() : 
+            (batch.validationCompletedAt() != null ? batch.validationCompletedAt() : batch.createdAt());
+        
+        return new BulkPaymentStatusDTO(
+            batch.id(),
+            batch.batchReference(),
+            batch.sourceAccount(),
+            batch.status().toString(),
+            batch.totalTransactions(),
+            processingCount,
+            completedCount,
+            failedCount,
+            progressPercent,
+            batch.totalAmount(),
+            batch.createdAt(),
+            lastUpdate,
+            paymentStatuses
+        );
+    }
+    
+    /**
+     * Check and update batch status based on payment settlement completion.
+     * This method is called by the scheduler to monitor PROCESSING batches
+     * and update their status to COMPLETED or PARTIALLY_COMPLETED once all payments are settled.
+     * 
+     * Runs in a separate transaction (REQUIRES_NEW) to allow scheduler to call it without parent context.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void checkAndUpdateBatchCompletion(Long batchId) throws BulkPaymentBatchNotFoundException {
+        BulkPaymentBatchRecord batch = batchRepository.findById(batchId)
+            .orElseThrow(() -> new BulkPaymentBatchNotFoundException(batchId));
+        
+        // Only process PROCESSING batches
+        if (batch.status() != BulkPaymentBatchStatus.PROCESSING) {
+            logger.debug("Batch {} status is {}, skipping completion check", batchId, batch.status());
+            return;
+        }
+        
+        // Fetch all items in the batch
+        List<BulkPaymentItemRecord> items = itemRepository.findByBatchId(batchId);
+        
+        // Count items by their current status
+        int successCount = (int) items.stream()
+            .filter(item -> item.status() == BulkPaymentItemStatus.SUCCESS)
+            .count();
+        int failedCount = (int) items.stream()
+            .filter(item -> item.status() == BulkPaymentItemStatus.FAILED || item.status() == BulkPaymentItemStatus.ROLLED_BACK)
+            .count();
+        int processingCount = (int) items.stream()
+            .filter(item -> item.status() == BulkPaymentItemStatus.PROCESSING)
+            .count();
+        
+        int totalCount = items.size();
+        
+        logger.debug("Batch {} status check - Success: {}, Failed: {}, Processing: {}, Total: {}",
+            batchId, successCount, failedCount, processingCount, totalCount);
+        
+        // Determine if batch is complete
+        boolean batchComplete = (successCount + failedCount) == totalCount && processingCount == 0;
+        
+        if (batchComplete) {
+            // Batch is done - update status based on results
+            BulkPaymentBatchStatus completionStatus;
+            if (failedCount == 0) {
+                completionStatus = BulkPaymentBatchStatus.COMPLETED;
+            } else if (successCount > 0) {
+                completionStatus = BulkPaymentBatchStatus.PARTIALLY_COMPLETED;
+            } else {
+                completionStatus = BulkPaymentBatchStatus.FAILED;
+            }
+            
+            // Update batch with final counts and status
+            BulkPaymentBatchRecord updatedBatch = batch
+                .withUpdatedCounts(successCount, failedCount)
+                .withProcessingCompleted(completionStatus);
+            
+            batchRepository.update(updatedBatch);
+            
+            logger.info("Batch {} processing completed - Status: {}, Success: {}, Failed: {}",
+                batchId, completionStatus, successCount, failedCount);
+        } else {
+            logger.debug("Batch {} still has {} items processing, not yet complete", 
+                batchId, processingCount);
+        }
+    }
+    
+// ==================== PRIVATE HELPER METHODS ====================
     
     private void validateSourceAccount(String sourceAccount) throws BulkPaymentCSVValidationException {
         if (sourceAccount == null || sourceAccount.trim().isEmpty()) {
@@ -572,34 +704,42 @@ public class BulkPaymentService {
                  }
              }
              
-             // Step 4: Create payment record with exchange rate information
-             PaymentRecord payment = PaymentRecord.createWithExchangeRate(
-                 null, // idempotencyKey
-                 sourceAccount,
-                 item.destinationAccount(),
-                 amount,
-                 item.currency(),
-                 sourceAmount,
-                 destinationAmount,
-                 exchangeRate
-             );
-             
-             // Step 5: Create payment via existing PaymentService
-             // This handles the full validation lifecycle
-             PaymentRecord createdPayment = paymentService.createPayment(payment);
-             
-             // Step 6: Perform fraud detection
-             FraudAssessmentRecord fraudAssessment = fraudDetectionService.assessPayment(createdPayment);
-             
-             // Update item with fraud results
-             BulkPaymentItemRecord fraudAssessedItem = item.withProcessingStarted(createdPayment.id())
-                 .withFraudAssessment(
-                     fraudAssessment.hybridFraudScore(),
-                     fraudAssessment.decision().toString()
-                 );
-             itemRepository.update(fraudAssessedItem);
-             
-             // Step 7: Check fraud decision
+               // Step 4: Generate unique idempotency key for this bulk payment item
+               // Format: BULK-{batchId}-{lineNumber}-{uuid}
+               String idempotencyKey = String.format("BULK-%d-%d-%s", 
+                   item.batchId(), 
+                   item.lineNumber(), 
+                   UUID.randomUUID().toString()
+               );
+               
+               // Step 5: Create payment record with exchange rate information and idempotency key
+               PaymentRecord payment = PaymentRecord.createWithExchangeRate(
+                   idempotencyKey, // idempotencyKey - NOW GENERATED FOR BULK PAYMENTS
+                   sourceAccount,
+                   item.destinationAccount(),
+                   amount,
+                   item.currency(),
+                   sourceAmount,
+                   destinationAmount,
+                   exchangeRate
+               );
+               
+               // Step 6: Create payment via existing PaymentService
+               // This handles the full validation lifecycle and idempotency checking
+               PaymentRecord createdPayment = paymentService.createPayment(payment);
+               
+               // Step 7: Perform fraud detection
+              FraudAssessmentRecord fraudAssessment = fraudDetectionService.assessPayment(createdPayment);
+              
+              // Update item with fraud results and store idempotency key
+              BulkPaymentItemRecord fraudAssessedItem = item.withProcessingStarted(createdPayment.id(), idempotencyKey)
+                  .withFraudAssessment(
+                      fraudAssessment.hybridFraudScore(),
+                      fraudAssessment.decision().toString()
+                  );
+              itemRepository.update(fraudAssessedItem);
+              
+              // Step 8: Check fraud decision
              if (fraudAssessment.decision() == FraudDecision.REJECTED) {
                  BulkPaymentItemRecord rejectedItem = fraudAssessedItem.withProcessingFailure(
                      "FRAUD_REJECTED",
@@ -608,8 +748,8 @@ public class BulkPaymentService {
                  itemRepository.update(rejectedItem);
                  return false;
              }
-             
-             // Step 8: Transition payment to SENT for processing by PaymentProcessorScheduler
+              
+              // Step 9: Transition payment to SENT for processing by PaymentProcessorScheduler
              // NOTE: We DO NOT call settlePayment() here. Reason:
              // Calling REQUIRES_NEW transaction (settlementService.settlePayment) from within
              // another REQUIRES_NEW transaction (processBatchSettlement) causes transaction
@@ -624,8 +764,8 @@ public class BulkPaymentService {
                  logger.debug("Payment {} transitioned to SENT status. Will be settled by PaymentProcessorScheduler", 
                      createdPayment.id());
              }
-             
-             // Step 9: Mark as success
+              
+              // Step 10: Mark as success
              BulkPaymentItemRecord successItem = fraudAssessedItem.withProcessingSuccess();
              itemRepository.update(successItem);
              
@@ -670,40 +810,41 @@ public class BulkPaymentService {
         return errors.toString();
     }
     
-    private BulkPaymentResponseDTO convertBatchToResponse(BulkPaymentBatchRecord batch) {
-        List<BulkPaymentItemRecord> items = itemRepository.findByBatchId(batch.id());
-        
-        List<BulkTransactionResultDTO> results = items.stream()
-            .map(item -> new BulkTransactionResultDTO(
-                item.lineNumber(),
-                item.paymentId(),
-                item.destinationAccount(),
-                item.amount(),
-                item.currency(),
-                item.status().toString(),
-                item.failureReason(),
-                item.errorCode(),
-                item.fraudScore(),
-                item.fraudDecision(),
-                item.validationErrors(),
-                item.rollbackStatus()
-            ))
-            .collect(Collectors.toList());
-        
-        return new BulkPaymentResponseDTO(
-            batch.id(),
-            batch.batchReference(),
-            batch.sourceAccount(),
-            batch.totalTransactions(),
-            batch.successfulTransactions(),
-            batch.failedTransactions(),
-            batch.status().toString(),
-            batch.totalAmount(),
-            batch.createdAt(),
-            batch.completedAt(),
-            results
-        );
-    }
+     private BulkPaymentResponseDTO convertBatchToResponse(BulkPaymentBatchRecord batch) {
+         List<BulkPaymentItemRecord> items = itemRepository.findByBatchId(batch.id());
+         
+         List<BulkTransactionResultDTO> results = items.stream()
+             .map(item -> new BulkTransactionResultDTO(
+                 item.lineNumber(),
+                 item.paymentId(),
+                 item.idempotencyKey(),
+                 item.destinationAccount(),
+                 item.amount(),
+                 item.currency(),
+                 item.status().toString(),
+                 item.failureReason(),
+                 item.errorCode(),
+                 item.fraudScore(),
+                 item.fraudDecision(),
+                 item.validationErrors(),
+                 item.rollbackStatus()
+             ))
+             .collect(Collectors.toList());
+         
+         return new BulkPaymentResponseDTO(
+             batch.id(),
+             batch.batchReference(),
+             batch.sourceAccount(),
+             batch.totalTransactions(),
+             batch.successfulTransactions(),
+             batch.failedTransactions(),
+             batch.status().toString(),
+             batch.totalAmount(),
+             batch.createdAt(),
+             batch.completedAt(),
+             results
+         );
+     }
 }
 
 

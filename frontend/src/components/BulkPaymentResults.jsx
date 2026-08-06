@@ -22,19 +22,36 @@ const BulkPaymentResults = ({ batch, onRetry }) => {
   useEffect(() => {
     if (currentBatch.status === 'PROCESSING' || currentBatch.status === 'VALIDATING') {
       const interval = setInterval(() => {
-        pollBatchProgress();
-      }, 2000);
+        pollBatchStatus();
+      }, 3000); // Poll every 3 seconds
       return () => clearInterval(interval);
     }
   }, [currentBatch.status]);
 
-  const pollBatchProgress = async () => {
+  const pollBatchStatus = async () => {
     try {
-      const response = await api.get(`/bulk-payments/${currentBatch.batchId}/progress`);
-      // Update UI with progress
-      console.log('Progress:', response.data);
+      const response = await api.get(`/bulk-payments/${currentBatch.batchId}/status`);
+      // Update UI with detailed status including individual payments
+      setCurrentBatch(prev => ({
+        ...prev,
+        ...response.data,
+        // Convert response data to expected format if needed
+        transactionResults: response.data.payments?.map(p => ({
+          lineNumber: p.lineNumber,
+          paymentId: p.paymentId,
+          destinationAccount: p.destinationAccount,
+          amount: p.amount,
+          currency: p.currency,
+          status: p.status,
+          failureReason: p.failureReason,
+          errorCode: p.errorCode,
+        })) || [],
+        successfulCount: response.data.completedCount,
+        failedCount: response.data.failedCount,
+      }));
+      console.log('Status updated:', response.data);
     } catch (error) {
-      console.error('Error polling progress:', error);
+      console.error('Error polling status:', error);
     }
   };
 

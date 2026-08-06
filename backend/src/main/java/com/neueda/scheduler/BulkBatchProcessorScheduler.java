@@ -171,5 +171,65 @@ public class BulkBatchProcessorScheduler {
             logger.error("Error in processValidatedBatches scheduler: {}", e.getMessage(), e);
         }
     }
+    
+    /**
+     * Monitor PROCESSING batches and update their status to COMPLETED or PARTIALLY_COMPLETED
+     * once all their payments have been settled.
+     * 
+     * This scheduler checks if all items in a PROCESSING batch have reached a terminal state
+     * (SUCCESS, FAILED, or ROLLED_BACK) and updates the batch status accordingly.
+     * 
+     * Runs every N seconds (configured via scheduler.bulk.interval-ms, 
+     * with delay to allow PaymentProcessorScheduler to settle payments first).
+     */
+    @Scheduled(fixedRateString = "${scheduler.bulk.interval-ms:10000}", initialDelayString = "${scheduler.bulk.completion-check-delay-ms:8000}")
+    public void checkAndUpdateBatchCompletion() {
+        try {
+            logger.debug("Starting completion check for PROCESSING bulk payment batches");
+            
+            // Find batches in PROCESSING status
+            List<BulkPaymentBatchRecord> processingBatches = batchRepository.findByStatus(
+                BulkPaymentBatchStatus.PROCESSING,
+                schedulerProperties.getBatchSize(),
+                0
+            );
+            
+            if (processingBatches.isEmpty()) {
+                logger.debug("No PROCESSING bulk batches found to check");
+                return;
+            }
+            
+            logger.info("Found {} PROCESSING batches to check for completion", processingBatches.size());
+            
+            int checkedCount = 0;
+            int completedCount = 0;
+            
+            for (BulkPaymentBatchRecord batch : processingBatches) {
+                try {
+                    logger.debug("Checking completion status for batch: {}", batch.batchReference());
+                    
+                    // Check and update batch completion status
+                    bulkPaymentService.checkAndUpdateBatchCompletion(batch.id());
+                    
+                    checkedCount++;
+                    // Re-fetch batch to check if it's now completed
+                    BulkPaymentBatchRecord updatedBatch = batchRepository.findById(batch.id())
+                        .orElse(null);
+                    if (updatedBatch != null && updatedBatch.status() != BulkPaymentBatchStatus.PROCESSING) {
+                        completedCount++;
+                        logger.info("Batch {} status updated to {}", batch.batchReference(), updatedBatch.status());
+                    }
+                    
+                } catch (Exception e) {
+                    logger.error("Failed to check completion for batch {}: {}", batch.batchReference(), e.getMessage(), e);
+                }
+            }
+            
+            logger.info("Completed batch completion check: {} checked, {} transitioned to completion",
+                checkedCount, completedCount);
+            
+        } catch (Exception e) {
+            logger.error("Error in checkAndUpdateBatchCompletion scheduler: {}", e.getMessage(), e);
+        }
+    }
 }
-

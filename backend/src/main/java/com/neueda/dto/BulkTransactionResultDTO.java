@@ -17,6 +17,11 @@ public record BulkTransactionResultDTO(
     Long paymentId,
     
     /**
+     * Idempotency key for this payment.
+     */
+    String idempotencyKey,
+    
+    /**
      * Destination account.
      */
     String destinationAccount,

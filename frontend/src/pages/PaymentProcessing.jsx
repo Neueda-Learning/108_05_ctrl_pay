@@ -9,6 +9,7 @@ import {
   Button,
   CircularProgress,
   Alert,
+  useTheme,
 } from '@mui/material';
 import { Refresh, CheckCircle, Error as ErrorIcon } from '@mui/icons-material';
 import { paymentAPI } from '../services/api';
@@ -34,6 +35,7 @@ function PaymentProcessing() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { customerId } = useCustomer();
+  const theme = useTheme();
 
   // State management
   const [payment, setPayment] = useState(null);
