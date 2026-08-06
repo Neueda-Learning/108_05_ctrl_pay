@@ -126,24 +126,104 @@ COMMENT='Fraud assessment audit event log for compliance and forensics';
 
 -- ========================================
 -- Enhancements to existing fraud_assessments table
+-- MySQL 8.0 compatible: use stored procedure to safely add columns only if missing
 -- ========================================
 
--- Add columns to track ML model version and processing routing
-ALTER TABLE fraud_assessments
-ADD COLUMN IF NOT EXISTS ml_model_version VARCHAR(50) COMMENT 'Model version used for this assessment',
-ADD COLUMN IF NOT EXISTS processing_lane VARCHAR(20) COMMENT 'Processing routing: FAST_TRACK, MANUAL_REVIEW, ESCALATION, REJECTION',
-ADD COLUMN IF NOT EXISTS confidence_score DECIMAL(5, 2) COMMENT 'Overall confidence in assessment (0-100)',
-ADD COLUMN IF NOT EXISTS confidence_factors JSON COMMENT 'Breakdown of why we are/not confident',
-ADD COLUMN IF NOT EXISTS ml_model_explanation TEXT COMMENT 'Detailed explanation from ML model',
-ADD COLUMN IF NOT EXISTS rule_performance_metrics_json JSON COMMENT 'Rule execution performance data',
-ADD COLUMN IF NOT EXISTS is_manually_reviewed BOOLEAN DEFAULT FALSE COMMENT 'Was this reviewed by human?',
-ADD COLUMN IF NOT EXISTS review_sla_ms BIGINT COMMENT 'SLA for manual review in milliseconds';
+DROP PROCEDURE IF EXISTS v2_migrate_fraud_assessments;
 
--- Add indexes for new columns
-ALTER TABLE fraud_assessments
-ADD INDEX IF NOT EXISTS idx_ml_model_version (ml_model_version),
-ADD INDEX IF NOT EXISTS idx_processing_lane (processing_lane),
-ADD INDEX IF NOT EXISTS idx_is_manually_reviewed (is_manually_reviewed);
+DELIMITER $$
+CREATE PROCEDURE v2_migrate_fraud_assessments()
+BEGIN
+    -- ml_model_version
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'ml_model_version'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN ml_model_version VARCHAR(50) COMMENT 'Model version used for this assessment';
+    END IF;
+
+    -- processing_lane
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'processing_lane'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN processing_lane VARCHAR(20) COMMENT 'Processing routing: FAST_TRACK, MANUAL_REVIEW, ESCALATION, REJECTION';
+    END IF;
+
+    -- confidence_score
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'confidence_score'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN confidence_score DECIMAL(5, 2) COMMENT 'Overall confidence in assessment (0-100)';
+    END IF;
+
+    -- confidence_factors
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'confidence_factors'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN confidence_factors JSON COMMENT 'Breakdown of why we are/not confident';
+    END IF;
+
+    -- ml_model_explanation
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'ml_model_explanation'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN ml_model_explanation TEXT COMMENT 'Detailed explanation from ML model';
+    END IF;
+
+    -- rule_performance_metrics_json
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'rule_performance_metrics_json'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN rule_performance_metrics_json JSON COMMENT 'Rule execution performance data';
+    END IF;
+
+    -- is_manually_reviewed
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'is_manually_reviewed'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN is_manually_reviewed BOOLEAN DEFAULT FALSE COMMENT 'Was this reviewed by human?';
+    END IF;
+
+    -- review_sla_ms
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.COLUMNS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND COLUMN_NAME = 'review_sla_ms'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD COLUMN review_sla_ms BIGINT COMMENT 'SLA for manual review in milliseconds';
+    END IF;
+
+    -- Indexes (only add if not already present)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND INDEX_NAME = 'idx_ml_model_version'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD INDEX idx_ml_model_version (ml_model_version);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND INDEX_NAME = 'idx_processing_lane'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD INDEX idx_processing_lane (processing_lane);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.STATISTICS
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'fraud_assessments' AND INDEX_NAME = 'idx_is_manually_reviewed'
+    ) THEN
+        ALTER TABLE fraud_assessments ADD INDEX idx_is_manually_reviewed (is_manually_reviewed);
+    END IF;
+END $$
+DELIMITER ;
+
+CALL v2_migrate_fraud_assessments();
+DROP PROCEDURE IF EXISTS v2_migrate_fraud_assessments;
 
 -- ========================================
 -- Sample configuration data
@@ -164,11 +244,11 @@ INSERT IGNORE INTO ml_models (
     NOW(),
     'paysim_v1',
     6000000,
-    96.50,
-    92.30,
-    94.80,
-    93.50,
-    97.20,
+    99.96,  -- Accuracy  : 0.9996403997095537
+    95.02,  -- Precision : 0.9501519756838905
+    76.13,  -- Recall    : 0.7613248904042864
+    84.53,  -- F1 Score  : 0.8453217955651704
+    99.46,  -- ROC AUC   : 0.9945962019353783
     TRUE,  -- Currently active
     NOW(),
     'PROD',

@@ -528,7 +528,7 @@ INSERT IGNORE INTO ml_models (
     'XGBoost model trained on PaySim synthetic financial dataset',
     'XGBOOST', '/models/XGBoostModel.pkl',
     NOW(), 'paysim_v1', 6000000,
-    96.50, 92.30, 94.80, 93.50, 97.20,
+    99.96, 95.02, 76.13, 84.53, 99.46,  -- Accuracy/Precision/Recall/F1/AUC
     TRUE, NOW(), 'PROD', 'SYSTEM'
 );
 
