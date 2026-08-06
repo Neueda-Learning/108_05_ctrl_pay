@@ -388,7 +388,10 @@ function Profile() {
   // =========================================================================
   // SECTION 4: PAYMENT STATISTICS
   // =========================================================================
-  const PaymentStatisticsContent = () => (
+  const PaymentStatisticsContent = () => {
+     const theme = useTheme();
+
+    return (
     <Box>
       <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
         <StatsIcon /> Payment Statistics
@@ -408,7 +411,7 @@ function Profile() {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ background: alpha('success.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.success.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Successful Payments
@@ -420,7 +423,7 @@ function Profile() {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ background: alpha('error.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.error.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Failed Payments
@@ -432,7 +435,7 @@ function Profile() {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={4}>
-            <Card sx={{ background: alpha('warning.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.warning.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Rejected Payments
@@ -473,11 +476,15 @@ function Profile() {
       )}
     </Box>
   );
+};
 
   // =========================================================================
   // SECTION 5: SECURITY & RISK INFORMATION
   // =========================================================================
-  const SecurityRiskContent = () => (
+  const SecurityRiskContent = () => {
+     const theme = useTheme();
+
+    return (
     <Box>
       <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
         <SecurityIcon /> Security Overview
@@ -507,7 +514,7 @@ function Profile() {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: alpha('warning.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.warning.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Fraud Flags
@@ -519,7 +526,7 @@ function Profile() {
             </Card>
           </Grid>
           <Grid item xs={12} sm={6} md={3}>
-            <Card sx={{ background: alpha('error.main', 0.08) }}>
+            <Card sx={{ background: alpha(theme.palette.error.main, 0.08) }}>
               <CardContent sx={{ textAlign: 'center' }}>
                 <Typography variant="caption" sx={{ color: custom.text.secondary }}>
                   Rejected Payments
@@ -550,6 +557,7 @@ function Profile() {
       )}
     </Box>
   );
+};
 
   // =========================================================================
   // SECTION 6: BULK PAYMENT HISTORY
