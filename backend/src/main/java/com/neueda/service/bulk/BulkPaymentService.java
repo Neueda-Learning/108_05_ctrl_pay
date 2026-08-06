@@ -222,29 +222,22 @@ public class BulkPaymentService {
         itemRepository.createBatch(itemRecords);
         logger.info("Created {} payment items for batch {}", itemRecords.size(), batchReference);
         
-        // Mark batch as ready for validation
-        BulkPaymentBatchRecord updatedBatch = createdBatch.withValidationStarted();
-        batchRepository.update(updatedBatch);
-        
-        // Automatically start validation and settlement for synchronous processing
-        try {
-            validateBatch(createdBatch.id());
-            processBatchSettlement(createdBatch.id());
-            logger.info("Batch {} processing completed automatically", batchReference);
-        } catch (Exception e) {
-            logger.error("Error during automatic batch processing: {}", e.getMessage(), e);
-            // Batch creation succeeded, but processing had issues
-            // Return the batch response anyway with current status
-        }
-        
-        // Return response with updated status
-        return convertBatchToResponse(batchRepository.findById(createdBatch.id()).orElse(updatedBatch));
+         // Mark batch as ready for processing
+         // Validation and settlement will be handled by BulkBatchProcessorScheduler
+         // in separate transactions to prevent rollback of batch creation on settlement failures
+         // Batch is already in CREATED status, ready to be picked up by scheduler
+         
+         logger.info("Batch {} created successfully and queued for validation/processing", batchReference);
+         
+         // Return response with CREATED status
+         return convertBatchToResponse(createdBatch);
     }
     
     /**
      * Validate all items in a batch using existing validation rules.
      * This executes the validation phase without persisting payments yet.
-     * Uses independent transaction (REQUIRES_NEW) so errors don't rollback batch creation.
+     * Uses REQUIRES_NEW propagation to run in independent transaction,
+     * allowing scheduler to call this without parent transaction context.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void validateBatch(Long batchId) throws BulkPaymentBatchNotFoundException {
@@ -296,65 +289,76 @@ public class BulkPaymentService {
         batchRepository.update(completedBatch);
     }
     
-    /**
-     * Process settlement for all validated items in a batch.
-     * Fraud detection occurs prior to settlement.
-     * Uses independent transaction (REQUIRES_NEW) so errors don't rollback batch creation.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void processBatchSettlement(Long batchId) throws BulkPaymentBatchNotFoundException {
-        BulkPaymentBatchRecord batch = batchRepository.findById(batchId)
-            .orElseThrow(() -> new BulkPaymentBatchNotFoundException(batchId));
-        
-        logger.info("Starting settlement phase for batch: {}", batch.batchReference());
-        
-        List<BulkPaymentItemRecord> validatedItems = itemRepository.findByBatchIdAndStatus(
-            batchId,
-            BulkPaymentItemStatus.VALIDATED
-        );
-        
-        int successCount = 0;
-        int failureCount = 0;
-        
-        // Start processing
-        BulkPaymentBatchRecord processingBatch = batch.withProcessingStarted();
-        batchRepository.update(processingBatch);
-        
-        for (BulkPaymentItemRecord item : validatedItems) {
-            try {
-                // Each item processing is independent - use its own transaction
-                boolean success = processSingleItem(item, batch.sourceAccount());
-                if (success) {
-                    successCount++;
-                } else {
-                    failureCount++;
-                }
-            } catch (Exception e) {
-                logger.error("Error processing item {} in batch {}: {}", 
-                    item.lineNumber(), batch.batchReference(), e.getMessage(), e);
-                failureCount++;
-            }
-        }
-        
-        // Determine batch completion status
-        BulkPaymentBatchStatus completionStatus;
-        if (failureCount == 0) {
-            completionStatus = BulkPaymentBatchStatus.COMPLETED;
-        } else if (successCount > 0) {
-            completionStatus = BulkPaymentBatchStatus.PARTIALLY_COMPLETED;
-        } else {
-            completionStatus = BulkPaymentBatchStatus.FAILED;
-        }
-        
-        // Update batch with final counts
-        BulkPaymentBatchRecord completedBatch = batch
-            .withUpdatedCounts(successCount, failureCount)
-            .withProcessingCompleted(completionStatus);
-        
-        batchRepository.update(completedBatch);
-        logger.info("Batch {} settlement completed - Success: {}, Failures: {}", 
-            batch.batchReference(), successCount, failureCount);
-    }
+     /**
+      * Process settlement for all validated items in a batch.
+      * Creates payments and transitions them to SENT status.
+      * Actual settlement (debit/credit) is handled by PaymentProcessorScheduler in separate transactions.
+      * 
+      * Uses REQUIRES_NEW propagation to run in independent transaction,
+      * allowing scheduler to call this without parent transaction context.
+      * 
+      * IMPORTANT: This phase does NOT call paymentSettlementService.settlePayment() directly.
+      * Reason: Calling REQUIRES_NEW from within REQUIRES_NEW causes transaction isolation issues
+      * where the inner transaction cannot see data created in the outer transaction because
+      * they haven't been committed yet. Instead, payments are transitioned to SENT status,
+      * and PaymentProcessorScheduler (in a completely separate scheduler thread) will pick them up
+      * for settlement in its own independent transactions.
+      */
+     @Transactional(propagation = Propagation.REQUIRES_NEW)
+     public void processBatchSettlement(Long batchId) throws BulkPaymentBatchNotFoundException {
+         BulkPaymentBatchRecord batch = batchRepository.findById(batchId)
+             .orElseThrow(() -> new BulkPaymentBatchNotFoundException(batchId));
+         
+         logger.info("Starting settlement phase for batch: {}", batch.batchReference());
+         
+         List<BulkPaymentItemRecord> validatedItems = itemRepository.findByBatchIdAndStatus(
+             batchId,
+             BulkPaymentItemStatus.VALIDATED
+         );
+         
+         int successCount = 0;
+         int failureCount = 0;
+         
+         // Start processing
+         BulkPaymentBatchRecord processingBatch = batch.withProcessingStarted();
+         batchRepository.update(processingBatch);
+         
+         for (BulkPaymentItemRecord item : validatedItems) {
+             try {
+                 // Each item processing is independent - use its own transaction
+                 boolean success = processSingleItem(item, batch.sourceAccount());
+                 if (success) {
+                     successCount++;
+                 } else {
+                     failureCount++;
+                 }
+             } catch (Exception e) {
+                 logger.error("Error processing item {} in batch {}: {}", 
+                     item.lineNumber(), batch.batchReference(), e.getMessage(), e);
+                 failureCount++;
+             }
+         }
+         
+         // Determine batch completion status based on payment creation success
+         // Final status will be updated after PaymentProcessorScheduler settles payments
+         BulkPaymentBatchStatus completionStatus;
+         if (failureCount == 0) {
+             completionStatus = BulkPaymentBatchStatus.PROCESSING;
+         } else if (successCount > 0) {
+             completionStatus = BulkPaymentBatchStatus.PROCESSING;
+         } else {
+             completionStatus = BulkPaymentBatchStatus.FAILED;
+         }
+         
+         // Update batch with counts
+         BulkPaymentBatchRecord completedBatch = batch
+             .withUpdatedCounts(successCount, failureCount)
+             .withProcessingCompleted(completionStatus);
+         
+         batchRepository.update(completedBatch);
+         logger.info("Batch {} payment creation completed - Created: {}, Failed: {}. Payments now in SENT status, awaiting settlement by PaymentProcessorScheduler", 
+             batch.batchReference(), successCount, failureCount);
+     }
     
     /**
      * Get batch details with transaction results.
@@ -518,120 +522,128 @@ public class BulkPaymentService {
         return ruleEngine.validatePayment(tempPayment, activeRules);
     }
     
-    private boolean processSingleItem(BulkPaymentItemRecord item, String sourceAccount) {
-        try {
-            // Mark as processing
-            BulkPaymentItemRecord processingItem = item.withProcessingStarted(null);
-            itemRepository.update(processingItem);
-            
-            // Step 1: Fetch destination account details to get its currency
-            AccountRecord destAccount = accountService.getAccountByAccountNumber(item.destinationAccount())
-                .orElseThrow(() -> new AccountValidationException(
-                    "Destination account not found: " + item.destinationAccount(),
-                    "ACCOUNT_NOT_FOUND"
-                ));
-            
-            // Step 2: Fetch source account details for currency information
-            AccountRecord srcAccount = accountService.getAccountByAccountNumber(sourceAccount)
-                .orElseThrow(() -> new AccountValidationException(
-                    "Source account not found: " + sourceAccount,
-                    "ACCOUNT_NOT_FOUND"
-                ));
-            
-            String sourceCurrency = srcAccount.currency();
-            String destinationCurrency = destAccount.currency();
-            BigDecimal amount = item.amount(); // This is the amount in the item's currency
-            BigDecimal sourceAmount;
-            BigDecimal destinationAmount;
-            BigDecimal exchangeRate;
-            
-            // Step 3: Calculate amounts and exchange rate if currencies differ
-            if (sourceCurrency.equals(item.currency()) && item.currency().equals(destinationCurrency)) {
-                // Same currency for both - no conversion needed
-                sourceAmount = amount;
-                destinationAmount = amount;
-                exchangeRate = BigDecimal.ONE;
-            } else {
-                // Currency conversion may be needed
-                // For now, use the item's currency as the base
-                sourceAmount = amount;
-                
-                // Get exchange rate if destination currency differs from item currency
-                if (!item.currency().equals(destinationCurrency)) {
-                    // Would need to call CurrencyConversionService here
-                    // For now, using identity rate (1:1)
-                    exchangeRate = BigDecimal.ONE;
-                    destinationAmount = amount;
-                } else {
-                    exchangeRate = BigDecimal.ONE;
-                    destinationAmount = amount;
-                }
-            }
-            
-            // Step 4: Create payment record with exchange rate information
-            PaymentRecord payment = PaymentRecord.createWithExchangeRate(
-                null, // idempotencyKey
-                sourceAccount,
-                item.destinationAccount(),
-                amount,
-                item.currency(),
-                sourceAmount,
-                destinationAmount,
-                exchangeRate
-            );
-            
-            // Step 5: Create payment via existing PaymentService
-            // This handles the full validation lifecycle
-            PaymentRecord createdPayment = paymentService.createPayment(payment);
-            
-            // Step 6: Perform fraud detection
-            FraudAssessmentRecord fraudAssessment = fraudDetectionService.assessPayment(createdPayment);
-            
-            // Update item with fraud results
-            BulkPaymentItemRecord fraudAssessedItem = item.withProcessingStarted(createdPayment.id())
-                .withFraudAssessment(
-                    fraudAssessment.hybridFraudScore(),
-                    fraudAssessment.decision().toString()
-                );
-            itemRepository.update(fraudAssessedItem);
-            
-            // Step 7: Check fraud decision
-            if (fraudAssessment.decision() == FraudDecision.REJECTED) {
-                BulkPaymentItemRecord rejectedItem = fraudAssessedItem.withProcessingFailure(
-                    "FRAUD_REJECTED",
-                    "Transaction rejected by fraud detection: " + fraudAssessment.explanation()
-                );
-                itemRepository.update(rejectedItem);
-                return false;
-            }
-            
-            // Step 8: Process settlement (this will handle the actual balance updates)
-            // Note: Each settlement uses independent transaction boundary (REQUIRES_NEW)
-            if (createdPayment.status() == PaymentStatus.VALIDATED) {
-                // For bulk payments, transition to SENT first, then settle
-                PaymentRecord sentPayment = createdPayment.withStatus(PaymentStatus.SENT);
-                paymentRepository.update(sentPayment);
-                paymentSettlementService.settlePayment(createdPayment.id());
-            }
-            
-            // Step 9: Mark as success
-            BulkPaymentItemRecord successItem = fraudAssessedItem.withProcessingSuccess();
-            itemRepository.update(successItem);
-            
-            logger.info("Successfully processed payment item {} - Payment ID: {}", item.lineNumber(), createdPayment.id());
-            return true;
-            
-        } catch (Exception e) {
-            logger.error("Item processing failed - Line: {}, Error: {}", item.lineNumber(), e.getMessage(), e);
-            
-            BulkPaymentItemRecord failedItem = item.withProcessingFailure(
-                "PAYMENT_PROCESSING_FAILED",
-                e.getMessage()
-            );
-            itemRepository.update(failedItem);
-            return false;
-        }
-    }
+     private boolean processSingleItem(BulkPaymentItemRecord item, String sourceAccount) {
+         try {
+             // Mark as processing
+             BulkPaymentItemRecord processingItem = item.withProcessingStarted(null);
+             itemRepository.update(processingItem);
+             
+             // Step 1: Fetch destination account details to get its currency
+             AccountRecord destAccount = accountService.getAccountByAccountNumber(item.destinationAccount())
+                 .orElseThrow(() -> new AccountValidationException(
+                     "Destination account not found: " + item.destinationAccount(),
+                     "ACCOUNT_NOT_FOUND"
+                 ));
+             
+             // Step 2: Fetch source account details for currency information
+             AccountRecord srcAccount = accountService.getAccountByAccountNumber(sourceAccount)
+                 .orElseThrow(() -> new AccountValidationException(
+                     "Source account not found: " + sourceAccount,
+                     "ACCOUNT_NOT_FOUND"
+                 ));
+             
+             String sourceCurrency = srcAccount.currency();
+             String destinationCurrency = destAccount.currency();
+             BigDecimal amount = item.amount(); // This is the amount in the item's currency
+             BigDecimal sourceAmount;
+             BigDecimal destinationAmount;
+             BigDecimal exchangeRate;
+             
+             // Step 3: Calculate amounts and exchange rate if currencies differ
+             if (sourceCurrency.equals(item.currency()) && item.currency().equals(destinationCurrency)) {
+                 // Same currency for both - no conversion needed
+                 sourceAmount = amount;
+                 destinationAmount = amount;
+                 exchangeRate = BigDecimal.ONE;
+             } else {
+                 // Currency conversion may be needed
+                 // For now, use the item's currency as the base
+                 sourceAmount = amount;
+                 
+                 // Get exchange rate if destination currency differs from item currency
+                 if (!item.currency().equals(destinationCurrency)) {
+                     // Would need to call CurrencyConversionService here
+                     // For now, using identity rate (1:1)
+                     exchangeRate = BigDecimal.ONE;
+                     destinationAmount = amount;
+                 } else {
+                     exchangeRate = BigDecimal.ONE;
+                     destinationAmount = amount;
+                 }
+             }
+             
+             // Step 4: Create payment record with exchange rate information
+             PaymentRecord payment = PaymentRecord.createWithExchangeRate(
+                 null, // idempotencyKey
+                 sourceAccount,
+                 item.destinationAccount(),
+                 amount,
+                 item.currency(),
+                 sourceAmount,
+                 destinationAmount,
+                 exchangeRate
+             );
+             
+             // Step 5: Create payment via existing PaymentService
+             // This handles the full validation lifecycle
+             PaymentRecord createdPayment = paymentService.createPayment(payment);
+             
+             // Step 6: Perform fraud detection
+             FraudAssessmentRecord fraudAssessment = fraudDetectionService.assessPayment(createdPayment);
+             
+             // Update item with fraud results
+             BulkPaymentItemRecord fraudAssessedItem = item.withProcessingStarted(createdPayment.id())
+                 .withFraudAssessment(
+                     fraudAssessment.hybridFraudScore(),
+                     fraudAssessment.decision().toString()
+                 );
+             itemRepository.update(fraudAssessedItem);
+             
+             // Step 7: Check fraud decision
+             if (fraudAssessment.decision() == FraudDecision.REJECTED) {
+                 BulkPaymentItemRecord rejectedItem = fraudAssessedItem.withProcessingFailure(
+                     "FRAUD_REJECTED",
+                     "Transaction rejected by fraud detection: " + fraudAssessment.explanation()
+                 );
+                 itemRepository.update(rejectedItem);
+                 return false;
+             }
+             
+             // Step 8: Transition payment to SENT for processing by PaymentProcessorScheduler
+             // NOTE: We DO NOT call settlePayment() here. Reason:
+             // Calling REQUIRES_NEW transaction (settlementService.settlePayment) from within
+             // another REQUIRES_NEW transaction (processBatchSettlement) causes transaction
+             // isolation issues - the inner transaction cannot see data created in the outer
+             // transaction because they haven't been committed yet.
+             // 
+             // Instead, we transition to SENT here, and PaymentProcessorScheduler will pick it up
+             // from a completely separate scheduler thread in its own independent transaction.
+             if (createdPayment.status() == PaymentStatus.VALIDATED) {
+                 PaymentRecord sentPayment = createdPayment.withStatus(PaymentStatus.SENT);
+                 paymentRepository.update(sentPayment);
+                 logger.debug("Payment {} transitioned to SENT status. Will be settled by PaymentProcessorScheduler", 
+                     createdPayment.id());
+             }
+             
+             // Step 9: Mark as success
+             BulkPaymentItemRecord successItem = fraudAssessedItem.withProcessingSuccess();
+             itemRepository.update(successItem);
+             
+             logger.info("Successfully processed payment item {} - Payment ID: {} (status: SENT, awaiting settlement)", 
+                 item.lineNumber(), createdPayment.id());
+             return true;
+             
+         } catch (Exception e) {
+             logger.error("Item processing failed - Line: {}, Error: {}", item.lineNumber(), e.getMessage(), e);
+             
+             BulkPaymentItemRecord failedItem = item.withProcessingFailure(
+                 "PAYMENT_PROCESSING_FAILED",
+                 e.getMessage()
+             );
+             itemRepository.update(failedItem);
+             return false;
+         }
+     }
     
     private String generateBatchReference() {
         return BATCH_REFERENCE_PREFIX + System.currentTimeMillis();
