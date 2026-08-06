@@ -1,88 +1,123 @@
+# Fraud Detection ML Service
+
+## 📁 Project Structure
+
+```
 ml_fraud-detection/
+│
 └── payment-fraud-detection-main/
-├── app.py              # Flask API
-├── XGBoostModel.pkl    # trained model
-├── notebook/
-│   └── paysim.ipynb    # training notebook
-├── templates/
-├── requirements.txt
-└── venv/
-
-
-
-## Overview
-
-This project provides a Machine Learning based fraud detection service integrated with the Ctrl+Pay payment processing system.
-
-The service uses a trained XGBoost classification model to predict the probability of a transaction being fraudulent.
-
-The ML service runs independently as a Flask REST API and provides fraud probability scores after successful payment completion.
-
----
-
-# Features
-
-- Fraud probability prediction using Machine Learning
-- XGBoost classification model
-- REST API using Flask
-- JSON based prediction endpoint
-- Returns:
-    - Fraud probability
-    - Legitimate probability
+    │
+    ├── app.py                         # Flask REST API service
+    │
+    ├── XGBoostModel.pkl               # Trained XGBoost fraud detection model
+    │
+    ├── notebook/
+    │   └── paysim.ipynb               # Model training and experimentation notebook
+    │
+    ├── templates/                     # Flask HTML templates
+    │
+    ├── requirements.txt               # Python package dependencies
+    │
+    ├── README.md                      # Documentation
+    │
+    └── venv/                          # Python virtual environment (not committed)
+```
 
 ---
 
-# Tech Stack
+# 📌 Overview
+
+The **Fraud Detection ML Service** is a Machine Learning microservice integrated with the **Ctrl+Pay Payment Processing System**.
+
+The service uses a trained **XGBoost classification model** to analyze transaction details and predict the probability of fraudulent activity.
+
+The ML service runs independently as a **Flask REST API** and provides real-time fraud risk scores after successful payment completion.
+
+The generated fraud probability is used for:
+- Risk monitoring
+- Payment history visualization
+- Suspicious transaction identification
+
+The service does **not block or reject payments**.
+
+---
+
+# 🚀 Features
+
+✅ Machine Learning based fraud prediction  
+✅ XGBoost classification model  
+✅ Flask REST API integration  
+✅ JSON-based prediction endpoint  
+✅ Real-time fraud probability calculation  
+✅ Returns:
+
+- 🔴 Fraud probability
+- 🟢 Legitimate probability
+
+---
+
+# 🛠️ Tech Stack
 
 ## Machine Learning
-- Python
-- XGBoost
-- Scikit-learn
-- Pandas
-- NumPy
 
-## Backend API
-- Flask
-- Flask-CORS
-
-## Model
-- XGBoost trained on PaySim transaction dataset
+| Technology | Purpose |
+|------------|---------|
+| Python | ML service development |
+| XGBoost | Fraud classification model |
+| Scikit-learn | Data preprocessing and ML utilities |
+| Pandas | Data processing |
+| NumPy | Numerical operations |
 
 ---
 
-# Project Structure
+## API Service
 
-
-payment-fraud-detection-main/
-
-├── app.py
-├── XGBoostModel.pkl
-├── notebook/
-│ └── paysim.ipynb
-├── templates/
-├── requirements.txt
-└── README.md
-
+| Technology | Purpose |
+|------------|---------|
+| Flask | REST API framework |
+| Flask-CORS | Frontend API communication |
 
 ---
 
-# Requirements
+## Model Information
 
-Python version:
+**Algorithm:**
 
+```
+XGBoost Classifier
+```
 
+**Training Dataset:**
+
+```
+PaySim Financial Transaction Dataset
+```
+
+The model predicts whether a transaction is potentially fraudulent based on transaction-level features.
+
+---
+
+# 📦 Requirements
+
+## Python Version
+
+```
 Python 3.10+
+```
 
+---
 
-Install dependencies:
+## Install Dependencies
 
-
+```bash
 pip install -r requirements.txt
+```
 
+---
 
-Main dependencies:
+## Main Dependencies
 
-
+```
 Flask
 flask-cors
 pandas
@@ -90,74 +125,81 @@ numpy
 scikit-learn
 xgboost
 joblib
-
+```
 
 ---
 
-# Setup Instructions
+# ⚙️ Setup Instructions
 
-## 1. Clone repository
+## 1. Clone Repository
 
-
+```bash
 git clone <repository-url>
+```
 
+Navigate to the ML service:
 
-Navigate:
-
-
+```bash
 cd payment-fraud-detection-main
-
+```
 
 ---
 
-## 2. Create virtual environment
+## 2. Create Virtual Environment
 
 Windows:
 
-
+```bash
 python -m venv venv
-
+```
 
 Activate:
 
-
+```powershell
 .\venv\Scripts\Activate
+```
 
+After activation:
+
+```
+(venv)
+```
 
 ---
 
-## 3. Install dependencies
+## 3. Install Dependencies
 
-
+```bash
 pip install -r requirements.txt
-
+```
 
 ---
 
-# Running the ML Service
+# ▶️ Running the ML Service
 
 Start Flask API:
 
-
+```bash
 python app.py
-
+```
 
 The service will start at:
 
-
+```
 http://127.0.0.1:5000
-
+```
 
 ---
 
-# API Documentation
+# 🔌 API Documentation
 
 ## Fraud Prediction API
 
 ### Endpoint
 
-
+```
 POST /predict-json
+```
 
 
 ### Request Example
