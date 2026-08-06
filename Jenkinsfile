@@ -30,11 +30,11 @@ pipeline {
                 dir('frontend') {
                     sh '''#!/bin/sh
 if command -v npm >/dev/null 2>&1; then
-  npm install --no-audit --no-fund
+  npm ci --no-audit --no-fund
   CI=true npm test -- --watch=false --passWithNoTests
   npm run build
 else
-  docker run --rm -v "$PWD":/app -w /app node:20-alpine sh -lc "npm install --no-audit --no-fund && CI=true npm test -- --watch=false --passWithNoTests && npm run build"
+  docker run --rm -v "$PWD":/app -w /app node:20-alpine sh -lc "npm ci --no-audit --no-fund && CI=true npm test -- --watch=false --passWithNoTests && npm run build"
 fi
 '''
                 }
@@ -75,9 +75,27 @@ PY
             }
         }
 
+        stage('Docker Cleanup') {
+            steps {
+                sh '''#!/bin/sh
+echo "=== Docker usage before cleanup ==="
+docker system df || true
+echo ""
+echo "=== Removing all unused build cache ==="
+docker builder prune -af || true
+echo ""
+echo "=== Removing dangling images ==="
+docker image prune -f || true
+echo ""
+echo "=== Docker usage after cleanup ==="
+docker system df || true
+'''
+            }
+        }
+
         stage('Build Docker Image') {
             steps {
-                sh 'docker-compose build --no-cache'
+                sh 'docker-compose build --pull'
             }
         }
 
@@ -94,7 +112,18 @@ PY
             }
         }
     }
-}
 
+    post {
+        always {
+            sh '''#!/bin/sh
+echo "=== Post-build cleanup ==="
+docker builder prune -af || true
+docker image prune -f || true
+echo "=== Final Docker usage ==="
+docker system df || true
+'''
+        }
+    }
+}
 
 
