@@ -121,14 +121,14 @@ function PlatformOverviewDashboard() {
             color="success"
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={4} lg={2.4}>
-          <StatsCard
-            title="Active Customers"
-            value={data?.activeCustomers?.toLocaleString() || '0'}
-            icon={PeopleIcon}
-            color="info"
-          />
-        </Grid>
+{/*         <Grid item xs={12} sm={6} md={4} lg={2.4}> */}
+{/*           <StatsCard */}
+{/*             title="Active Customers" */}
+{/*             value={data?.activeCustomers?.toLocaleString() || '0'} */}
+{/*             icon={PeopleIcon} */}
+{/*             color="info" */}
+{/*           /> */}
+{/*         </Grid> */}
         <Grid item xs={12} sm={6} md={4} lg={2.4}>
           <StatsCard
             title="Fraud Detected"

@@ -111,27 +111,27 @@ function TransactionDashboard() {
             icon={PaymentIcon}
           />
         </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatsCard
-            title="Total Volume"
-            value={`$${(data?.transactionVolume?.toLocaleString() || 0)}`}
-            icon={MoneyIcon}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatsCard
-            title="Average Value"
-            value={`$${(data?.averageTransactionValue?.toLocaleString() || 0)}`}
-            icon={TrendingUpIcon}
-          />
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <StatsCard
-            title="This Month"
-            value={Math.random().toFixed(0) * 1000}
-            icon={CalendarIcon}
-          />
-        </Grid>
+{/*         <Grid item xs={12} sm={6} md={3}> */}
+{/*           <StatsCard */}
+{/*             title="Total Volume" */}
+{/*             value={`$${(data?.transactionVolume?.toLocaleString() || 0)}`} */}
+{/*             icon={MoneyIcon} */}
+{/*           /> */}
+{/*         </Grid> */}
+{/*         <Grid item xs={12} sm={6} md={3}> */}
+{/*           <StatsCard */}
+{/*             title="Average Value" */}
+{/*             value={`$${(data?.averageTransactionValue?.toLocaleString() || 0)}`} */}
+{/*             icon={TrendingUpIcon} */}
+{/*           /> */}
+{/*         </Grid> */}
+{/*         <Grid item xs={12} sm={6} md={3}> */}
+{/*           <StatsCard */}
+{/*             title="This Month" */}
+{/*             value={Math.random().toFixed(0) * 1000} */}
+{/*             icon={CalendarIcon} */}
+{/*           /> */}
+{/*         </Grid> */}
       </Grid>
 
       {/* Charts */}
