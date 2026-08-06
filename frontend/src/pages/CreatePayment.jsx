@@ -21,6 +21,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { paymentAPI, accountAPI, currencyAPI } from '../services/api';
 import { toast } from 'react-toastify';
 import { useCustomer } from '../context/CustomerContext';
+import PinCodeInput from '../components/PinCodeInput';
 
 const steps = [
   'Verify Destination Account',
@@ -773,21 +774,21 @@ function CreatePayment() {
                       rules={{
                         required: 'PIN is required',
                         pattern: {
-                          value: /^[0-9]{4,6}$/,
-                          message: 'PIN must be 4 to 6 digits',
+                          value: /^[0-9]{4}$/,
+                          message: 'PIN must be exactly 4 digits',
                         },
                       }}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
-                          label="Enter Account PIN"
-                          type="password"
-                          fullWidth
-                          placeholder="Enter 4-6 digit PIN"
-                          error={!!errors.pin}
-                          helperText={errors.pin?.message}
-                          sx={{ mb: 2 }}
-                        />
+                        <Box sx={{ mb: 2 }}>
+                          <PinCodeInput
+                            label="Enter Account PIN"
+                            value={field.value}
+                            onChange={field.onChange}
+                            error={!!errors.pin}
+                            helperText={errors.pin?.message || 'Enter 4-digit PIN'}
+                          />
+                        </Box>
+                        
                       )}
                     />
 

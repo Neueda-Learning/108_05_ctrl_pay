@@ -8,6 +8,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import api from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
 import BulkPaymentResults from '../components/BulkPaymentResults';
+import PinCodeInput from '../components/PinCodeInput';
 import './BulkPayments.css';
 
 const BulkPayments = () => {
@@ -119,6 +120,11 @@ const BulkPayments = () => {
   const handlePinSubmit = async () => {
     if (!pinInput) {
       toast.error('Please enter your PIN');
+      return;
+    }
+
+    if (!/^\d{4}$/.test(pinInput)) {
+      toast.error('PIN must be exactly 4 digits');
       return;
     }
 
@@ -657,23 +663,15 @@ const BulkPayments = () => {
         <DialogTitle>Enter Account PIN</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
           <Typography variant="body2" sx={{ mb: 2 }}>
-            Please enter your 4-6 digit PIN to authorize this bulk payment transaction
+            Please enter your 4-digit PIN to authorize this bulk payment transaction
           </Typography>
-          <TextField
-            autoFocus
-            fullWidth
+          <PinCodeInput
             label="PIN"
-            type="password"
             value={pinInput}
-            onChange={(e) => setPinInput(e.target.value)}
-            placeholder="Enter 4-6 digits"
-            inputProps={{ maxLength: 6, pattern: '[0-9]*' }}
+            onChange={setPinInput}
             disabled={loading}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter' && !loading) {
-                handlePinSubmit();
-              }
-            }}
+            autoFocus
+            helperText="Enter exactly 4 digits"
           />
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
@@ -689,7 +687,7 @@ const BulkPayments = () => {
           <Button
             onClick={handlePinSubmit}
             variant="contained"
-            disabled={loading || !pinInput}
+            disabled={loading || !/^\d{4}$/.test(pinInput)}
             startIcon={loading ? <CircularProgress size={20} /> : undefined}
           >
             {loading ? 'Processing...' : 'Authorize'}

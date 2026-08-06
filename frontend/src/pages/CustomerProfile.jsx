@@ -16,6 +16,7 @@ import { Controller, useForm } from 'react-hook-form';
 import { toast } from 'react-toastify';
 import { accountAPI, currencyAPI } from '../services/api';
 import { useCustomer } from '../context/CustomerContext';
+import PinCodeInput from '../components/PinCodeInput';
 
 const getTodayDateString = () => new Date().toISOString().split('T')[0];
 
@@ -360,18 +361,17 @@ function CustomerProfile() {
                       rules={{
                         required: 'Account PIN is required',
                         pattern: {
-                          value: /^[0-9]{4,6}$/,
-                          message: 'PIN must be 4 to 6 digits',
+                          value: /^[0-9]{4}$/,
+                          message: 'PIN must be exactly 4 digits',
                         },
                       }}
                       render={({ field }) => (
-                        <TextField
-                          {...field}
+                        <PinCodeInput
                           label="Account PIN"
-                          type="password"
-                          fullWidth
+                          value={field.value}
+                          onChange={field.onChange}
                           error={!!accountForm.formState.errors.accountPin}
-                          helperText={accountForm.formState.errors.accountPin?.message}
+                          helperText={accountForm.formState.errors.accountPin?.message || 'Enter 4-digit PIN'}
                         />
                       )}
                     />
