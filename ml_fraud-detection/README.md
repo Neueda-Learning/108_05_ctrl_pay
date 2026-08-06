@@ -51,8 +51,8 @@ The service does **not block or reject payments**.
 ✅ Real-time fraud probability calculation  
 ✅ Returns:
 
-- 🔴 Fraud probability
-- 🟢 Legitimate probability
+- Fraud probability
+-  Legitimate probability
 
 ---
 
@@ -60,22 +60,18 @@ The service does **not block or reject payments**.
 
 ## Machine Learning
 
-| Technology | Purpose |
-|------------|---------|
-| Python | ML service development |
-| XGBoost | Fraud classification model |
-| Scikit-learn | Data preprocessing and ML utilities |
-| Pandas | Data processing |
-| NumPy | Numerical operations |
+- **Python** - ML service development
+- **XGBoost** - Fraud classification model
+- **Scikit-learn** - Data preprocessing and ML utilities
+- **Pandas** - Data processing
+- **NumPy** - Numerical operations
 
 ---
 
 ## API Service
 
-| Technology | Purpose |
-|------------|---------|
-| Flask | REST API framework |
-| Flask-CORS | Frontend API communication |
+- **Flask** - REST API framework
+- **Flask-CORS** - Frontend API communication
 
 ---
 
@@ -212,7 +208,10 @@ POST /predict-json
     "currency": "INR",
     "transaction_type": "TRANSFER"
 }
-Response Example
+```
+### Response Example
+
+```json
 {
     "fraud_probability": 2.5,
     "legitimate_probability": 97.5
@@ -279,7 +278,7 @@ Run Flask in development mode:
 python app.py
 ```
 
-For production deployment, use a production WSGI server.
+For production deployment, use a production Web Server Gateway Interface.
 
 ---
 
