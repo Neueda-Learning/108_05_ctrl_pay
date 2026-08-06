@@ -165,6 +165,9 @@ POST /predict-json
 ```json
 {
     "amount": 250,
+    "source_account": "123456789102",
+    "destination_account": "123456789101",
+    "currency": "INR",
     "transaction_type": "TRANSFER"
 }
 Response Example
