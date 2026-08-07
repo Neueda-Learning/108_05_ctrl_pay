@@ -236,45 +236,36 @@ erDiagram
 
 ---
 
-## Payment Lifecycle State Machine
+## Payment Processing Flow
 
 ```mermaid
-stateDiagram-v2
-    [*] --> CREATED : Payment Submitted
+flowchart TD
 
-    CREATED --> VALIDATED : All rules pass + Fraud APPROVED
-    CREATED --> FAILED : Hard rule fails
-    CREATED --> SUSPICIOUS : Fraud score SUSPICIOUS
+    A[API Request] --> B[Idempotency Check]
 
-    VALIDATED --> SENT : Sent to gateway
-    VALIDATED --> FAILED : Gateway rejects
+    B --> C[Validation Rule Engine]
 
-    SENT --> COMPLETED : Settlement success
-    SENT --> FAILED : Settlement fails (after retries)
+    C -->|PASS| D[CREATED]
+    C -->|FAIL| E[FAILED]
 
-    SUSPICIOUS --> VALIDATED : Admin approves
-    SUSPICIOUS --> FAILED : Admin rejects
+    D --> F[Fraud Engine]
 
-    COMPLETED --> [*]
-    FAILED --> [*]
+    F -->|APPROVED| G[VALIDATED]
+    F -->|SUSPICIOUS| H[REVIEW]
+    F -->|REJECT| I[FAILED]
 
-    note right of CREATED
-        Idempotency check
-        Validation rules execute
-        Fraud detection runs
-    end note
+    G --> J[SENT]
 
-    note right of SUSPICIOUS
-        Held for human review
-        Admin dashboard shows
-        pending cases
-    end note
+    J --> K[COMPLETED]
 
-    note right of SENT
-        Settlement scheduler
-        processes payments
-        with retry logic
-    end note
+
+    style A fill:#f9f,stroke:#333
+    style B fill:#bbf,stroke:#333
+    style C fill:#bbf,stroke:#333
+    style F fill:#bbf,stroke:#333
+    style E fill:#f66,stroke:#333
+    style I fill:#f66,stroke:#333
+    style K fill:#6f6,stroke:#333
 ```
 
 ---
