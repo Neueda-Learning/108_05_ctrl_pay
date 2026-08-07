@@ -1,308 +1,490 @@
-# Ctrl-Pay Payment Processing System
+# 💳 Ctrl-Pay — Intelligent Payment Processing Platform
 
-A full-stack payment processing platform with fraud detection, built with React, Spring Boot, MySQL, a Flask ML service, Docker Compose, Nginx, and Jenkins.
+<div align="center">
 
-- **Backend:** Spring Boot 4.0.7 (Java 17), Spring Web, Spring JDBC, MySQL
-- **Frontend:** React 18 + CRA
-- **API Docs:** springdoc OpenAPI / Swagger UI
-- **Fraud Detection:** Flask + XGBoost model inference service
-- **Containerization:** Docker + Docker Compose
+**A full-stack payment processing system with real-time fraud detection, built with React, Spring Boot, MySQL, Flask ML, Docker Compose, and Jenkins CI/CD.**
 
-## Table of Contents
+[![Java](https://img.shields.io/badge/Java-17-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.0.7-6DB33F?logo=spring-boot)](https://spring.io/projects/spring-boot)
+[![React](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=black)](https://react.dev/)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-4479A1?logo=mysql&logoColor=white)](https://www.mysql.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![Jenkins](https://img.shields.io/badge/Jenkins-CI%2FCD-D24939?logo=jenkins&logoColor=white)](https://www.jenkins.io/)
+[![XGBoost](https://img.shields.io/badge/XGBoost-ML-189FDD)](https://xgboost.readthedocs.io/)
+
+</div>
+
+---
+
+## 📋 Table of Contents
 
 - [Overview](#overview)
 - [Architecture](#architecture)
+- [Key Features](#key-features)
 - [Tech Stack](#tech-stack)
-- [Prerequisites](#prerequisites)
+- [Data Model](#data-model)
 - [Quick Start (Docker Compose)](#quick-start-docker-compose)
 - [Deployment Access (Linux VM)](#deployment-access-linux-vm)
-- [Local Development (Without Docker)](#local-development-without-docker)
-- [Configuration](#configuration)
-- [Database Schema and Seed Data](#database-schema-and-seed-data)
+- [Local Development](#local-development)
 - [API Reference](#api-reference)
-- [Frontend Notes](#frontend-notes)
+- [Fraud Detection Engine](#fraud-detection-engine)
 - [Testing](#testing)
-- [Troubleshooting](#troubleshooting)
+- [CI/CD Pipeline](#cicd-pipeline)
 - [Project Structure](#project-structure)
+- [Configuration](#configuration)
+- [Troubleshooting](#troubleshooting)
+
+---
 
 ## Overview
 
-Ctrl-Pay manages the lifecycle of payment transactions:
+Ctrl-Pay is a comprehensive payment processing platform that manages the complete lifecycle of financial transactions with enterprise-grade fraud detection, audit compliance, and analytics.
 
-1. Create a payment
-2. Validate it against business rules
-3. Process it through the settlement flow
-4. Complete or fail the payment
-5. Record an audit trail for compliance and traceability
+### Core Capabilities
 
-The frontend provides the user interface for payment operations, the backend exposes REST APIs, the MySQL database stores transactional state, and the ML service provides fraud probability scoring that the backend can consult during processing.
+1. **Payment Lifecycle Management** — Create → Validate → Send → Complete/Fail with full audit trail
+2. **Hybrid Fraud Detection** — 14 rule-based detectors + XGBoost ML model for real-time scoring
+3. **Bulk Payment Processing** — CSV upload for batch payments with per-item validation
+4. **Customer & Account Management** — PAN-based profiles, multi-account, PIN authentication
+5. **Real-Time Analytics** — 7 interactive dashboards with live charts (Platform, Transaction, Fraud, Customer, ML Model, Bulk, Compliance)
+6. **Admin Control Panels** — Configurable validation rules, fraud rules, and human review queues
+7. **Settlement Engine** — Automated processing with cross-currency conversion, retry logic, and exponential backoff
+
+---
 
 ## Architecture
 
-```text
-+--------------+--------------------------+------+----------------------------------------------+
-| Layer        | Component                | Port | Responsibility                               |
-+--------------+--------------------------+------+----------------------------------------------+
-| Frontend     | ctrl-pay-frontend        | 8081 | Serves React UI through Nginx                |
-| Proxy        | Nginx (frontend)         | 80   | Proxies /api, /ml, /actuator, Swagger paths  |
-| Backend API  | ctrl-pay-backend         | 8082 | Exposes payment REST endpoints               |
-| ML Service   | ctrl-pay-ml              | 8083 | Fraud prediction inference                   |
-| Database     | ctrl-pay-mysql (MySQL 8) | 3306 | Persists payments, history, rules, audits    |
-| Jenkins      | Jenkins                   | 8080 | CI/CD pipeline execution                     |
-+--------------+--------------------------+------+----------------------------------------------+
+### System Architecture Diagram
+
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        Browser["🌐 Browser<br/>React 18 + Material UI"]
+    end
+
+    subgraph "Proxy Layer"
+        Nginx["⚡ Nginx<br/>Reverse Proxy :80"]
+    end
+
+    subgraph "Application Layer"
+        Backend["☕ Spring Boot API<br/>Java 17 :8082"]
+        ML["🐍 Flask ML Service<br/>XGBoost :8083"]
+    end
+
+    subgraph "Data Layer"
+        MySQL["🐬 MySQL 8.0<br/>:3306"]
+    end
+
+    Browser -->|"HTTP :8081"| Nginx
+    Nginx -->|"/api/*"| Backend
+    Nginx -->|"/ml/*"| ML
+    Nginx -->|"/swagger-ui"| Backend
+    Backend -->|"JDBC"| MySQL
+    Backend -->|"POST /predict-json"| ML
 ```
 
-Request flow:
+### Request Flow
 
-```text
-[ Browser :8081 ]
-        |
-        | GET /api/payments
-        v
-[ Nginx (ctrl-pay-frontend) ]
-        |
-        | proxy_pass /api/*
-        v
-[ Spring Boot API :8082 ] -----> [ MySQL :3306 ]
-        |
-        | fraud scoring request
-        v
-[ Flask ML Service :8083 ]
 ```
+Browser (:8081) → Nginx (reverse proxy) → Spring Boot API (:8082) → MySQL (:3306)
+                                        → Flask ML Service (:8083)
+```
+
+| Layer | Component | Port | Responsibility |
+|-------|-----------|------|---------------|
+| Frontend | `ctrl-pay-frontend` | 8081 | Serves React UI through Nginx |
+| Proxy | Nginx (inside frontend) | 80 | Proxies `/api`, `/ml`, `/actuator`, Swagger paths |
+| Backend API | `ctrl-pay-backend` | 8082 | REST endpoints, business logic, fraud detection |
+| ML Service | `ctrl-pay-ml` | 8083 | XGBoost fraud prediction inference |
+| Database | `ctrl-pay-mysql` | 3306 | Persists all transactional data |
+| CI/CD | Jenkins | 8080 | Automated build, test, deploy pipeline |
+
+> 📘 For detailed architecture diagrams (sequence, activity, component, ER), see [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+
+---
+
+## Key Features
+
+### 💰 Payment Processing
+- Single payment creation with PIN-based authentication
+- Idempotency key support to prevent duplicate payments
+- Full payment lifecycle: `CREATED → VALIDATED → SENT → COMPLETED`
+- Cross-currency payments with real-time exchange rates
+- Payment receipt generation (PDF)
+
+### 🔍 Fraud Detection (Hybrid AI)
+- **14 rule-based fraud detectors** — velocity, large amounts, unusual time, account drain, cyclical patterns, behavioral baselines, cross-currency anomalies, and more
+- **XGBoost ML model** — trained on financial fraud dataset with 9 features
+- **Hybrid scoring** — weighted combination of rule engine + ML probability
+- **Admin review queue** — suspicious payments held for human approval/rejection
+
+### 📦 Bulk Payments
+- CSV file upload for batch processing
+- Per-item validation against all business rules
+- Batch status tracking: `CREATED → VALIDATING → PROCESSING → COMPLETED`
+- Partial completion support (some items succeed, others fail)
+
+### 📊 Analytics Dashboards
+- **Platform Overview** — total payments, success rate, volume trends
+- **Transaction Dashboard** — status distribution, daily volumes, settlement metrics
+- **Fraud Dashboard** — risk distribution, triggered rules, ML accuracy
+- **Customer Analytics** — customer activity, account risk levels
+- **ML Model Dashboard** — model performance metrics, prediction distribution
+
+### ✅ Validation Engine
+- Database-configurable validation rules (zero-downtime changes)
+- 5 built-in rules: Amount Range, Account Format, Account Difference, Sufficient Funds, Mock Sufficient Funds
+- HARD rules (block payment) vs SOFT rules (warning only)
+- Dry-run testing for new rules before activation
+
+### 🕵️ Compliance & Audit
+- Immutable `payment_status_history` table records every state transition
+- Fraud assessment audit trail with reviewer identity and notes
+- `fraud_audit_events` for compliance reporting
+- Complete validation result logging per payment
+
+---
 
 ## Tech Stack
 
-```text
-+-----------+--------------------------------------+---------+--------------------------------------+
-| Layer     | Technology                           | Version | Notes                                |
-+-----------+--------------------------------------+---------+--------------------------------------+
-| Backend   | Java                                 | 17      | Runtime language                     |
-| Backend   | Spring Boot                          | 4.0.7   | Application framework                |
-| Backend   | Spring Web                           | Managed | REST controllers                     |
-| Backend   | Spring JDBC                          | Managed | Data access layer                    |
-| Backend   | MySQL Connector/J                    | Managed | MySQL JDBC driver                    |
-| Backend   | springdoc-openapi-starter-webmvc-ui  | 2.8.14  | OpenAPI + Swagger UI                 |
-| Frontend  | React                                | 18      | UI framework                         |
-| Frontend  | CRA / react-scripts                  | 5.x     | Build tooling                        |
-| ML        | Flask                                | 3.x     | Inference API                        |
-| ML        | XGBoost / scikit-learn / pandas      | 2.x/1.x | Fraud model runtime dependencies     |
-| Container | Docker / Docker Compose              | N/A     | Multi-service local environment      |
-+-----------+--------------------------------------+---------+--------------------------------------+
+| Layer | Technology | Version | Purpose |
+|-------|-----------|---------|---------|
+| **Backend** | Java | 17 | Runtime language |
+| **Backend** | Spring Boot | 4.0.7 | Application framework |
+| **Backend** | Spring Web | Managed | REST controllers |
+| **Backend** | Spring JDBC | Managed | Data access layer |
+| **Backend** | MySQL Connector/J | Managed | JDBC driver |
+| **Backend** | springdoc-openapi | 2.8.14 | Swagger UI + OpenAPI |
+| **Frontend** | React | 18 | UI framework |
+| **Frontend** | Material UI (MUI) | 5.14 | Component library |
+| **Frontend** | Recharts | 2.8 | Data visualization |
+| **Frontend** | Axios | 1.4 | HTTP client |
+| **Frontend** | React Router | 6.14 | Client-side routing |
+| **ML** | Flask | 3.x | Inference API server |
+| **ML** | XGBoost | 2.x | Gradient boosted fraud classifier |
+| **ML** | scikit-learn / pandas | 1.x | Feature engineering |
+| **DevOps** | Docker / Docker Compose | Latest | Container orchestration |
+| **DevOps** | Nginx | Alpine | Reverse proxy & static hosting |
+| **DevOps** | Jenkins | Latest | CI/CD pipeline automation |
+
+---
+
+## Data Model
+
+The database consists of **14 tables** organized across 4 domains:
+
+```mermaid
+erDiagram
+    customers ||--o{ accounts : "has"
+    accounts ||--o{ payments : "source/dest"
+    payments ||--o{ payment_status_history : "audit"
+    payments ||--o{ validation_results : "checks"
+    payments ||--|| fraud_assessments : "fraud score"
+    payments ||--o{ payment_retry_attempts : "retries"
+    validation_rules ||--o{ validation_results : "rule ref"
+    accounts ||--o{ bulk_payment_batches : "source"
+    bulk_payment_batches ||--o{ bulk_payment_items : "items"
+
+    customers {
+        BIGINT customer_id PK
+        VARCHAR pan_number UK
+        VARCHAR name
+        VARCHAR country
+        VARCHAR status
+    }
+    accounts {
+        BIGINT account_id PK
+        VARCHAR account_number UK
+        DECIMAL balance
+        CHAR currency
+        VARCHAR status
+    }
+    payments {
+        BIGINT id PK
+        VARCHAR idempotency_key UK
+        DECIMAL amount
+        VARCHAR status
+        TIMESTAMP created_at
+    }
+    fraud_assessments {
+        BIGINT id PK
+        DECIMAL hybrid_fraud_score
+        VARCHAR decision
+        VARCHAR risk_level
+    }
 ```
 
-## Prerequisites
+### Domain Breakdown
 
-Install these tools:
+| Domain | Tables | Purpose |
+|--------|--------|---------|
+| **Customer** | `customers`, `accounts` | Customer profiles (PAN-keyed), bank accounts with PIN auth |
+| **Payment** | `payments`, `payment_status_history`, `validation_results`, `payment_retry_attempts` | Payment lifecycle, audit trail, rule results, retry tracking |
+| **Fraud** | `fraud_assessments`, `fraud_account_risk`, `fraud_rules`, `fraud_audit_events`, `ml_models`, `ml_model_predictions` | Fraud scoring, risk escalation, rule config, ML tracking |
+| **Bulk** | `bulk_payment_batches`, `bulk_payment_items` | Batch processing for CSV uploads |
+| **Validation** | `validation_rules` | Configurable business rules |
 
-- Java 17+
-- Maven 3.9+
-- Node.js 20+
-- Python 3.11+
-- Docker Desktop or Docker Engine
-- Docker Compose
+> 📘 Full ER diagram with all columns: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md#data-model-er-diagram)
+
+---
 
 ## Quick Start (Docker Compose)
 
-This is the easiest way to run the entire platform.
-
 ```bash
+# Clone the repository
+git clone <repo-url>
+cd 108_05_ctrl_pay
+
+# Start all services
 docker compose up --build
 ```
 
 Services started:
 
-- `ctrl-pay-mysql` (MySQL): `3306` internal
-- `ctrl-pay-backend` (API): `8082` internal
-- `ctrl-pay-ml` (fraud scoring): `8083` internal
-- `ctrl-pay-frontend` (UI via Nginx): `8081` public
-- Jenkins (separate VM service): `8080`
+| Service | Container Name | Port |
+|---------|---------------|------|
+| MySQL | `ctrl-pay-mysql` | 3306 (internal) |
+| ML Service | `ctrl-pay-ml` | 8083 (internal) |
+| Backend API | `ctrl-pay-backend` | 8082 (internal) |
+| Frontend + Nginx | `ctrl-pay-frontend` | **8081** (public) |
 
-Open:
+### Access Points
 
-- Frontend: `http://localhost:8081`
-- API base: `http://localhost:8081/api/payments`
-- Swagger UI: `http://localhost:8081/swagger-ui/index.html`
-- OpenAPI JSON: `http://localhost:8081/v3/api-docs`
+| Resource | URL |
+|----------|-----|
+| 🌐 Frontend | `http://localhost:8081` |
+| 📡 API Base | `http://localhost:8081/api/payments` |
+| 📖 Swagger UI | `http://localhost:8081/swagger-ui/index.html` |
+| 📝 OpenAPI JSON | `http://localhost:8081/v3/api-docs` |
 
-Stop services:
-
-```bash
-docker compose down
-```
-
-Stop and remove volumes (fresh DB):
+### Stop Services
 
 ```bash
-docker compose down -v
+docker compose down          # Stop containers
+docker compose down -v       # Stop + remove volumes (fresh DB)
 ```
+
+---
 
 ## Deployment Access (Linux VM)
 
-After deployment, access services through the VM IP:
+After deployment to the Linux VM:
 
-```powershell
-$env:VM_IP="10.9.72.215"
+```
+VM IP: 10.9.72.215
 ```
 
-Access URLs:
+| Resource | URL |
+|----------|-----|
+| Frontend | `http://10.9.72.215:8081` |
+| Swagger UI | `http://10.9.72.215:8081/swagger-ui/index.html` |
+| Jenkins | `http://10.9.72.215:8080` |
 
-- Frontend: `http://10.9.72.215:8081`
-- Swagger UI: `http://10.9.72.215:8081/swagger-ui/index.html`
-- OpenAPI JSON: `http://10.9.72.215:8081/v3/api-docs`
-- Jenkins: `http://10.9.72.215:8080`
+---
 
-## Local Development (Without Docker)
+## Local Development
 
-### 1) Start MySQL and create database
+### Prerequisites
 
-Create the `ctrl_pay` database locally if you are not using Docker.
+- Java 17+
+- Maven 3.9+ (or use included `mvnw`)
+- Node.js 20+
+- Python 3.11+
+- MySQL 8.0+
 
-### 2) Run backend
+### 1. Start MySQL
 
-From `backend`:
+```sql
+CREATE DATABASE ctrl_pay;
+```
+
+### 2. Run Backend
 
 ```bash
+cd backend
 ./mvnw spring-boot:run -Dspring-boot.run.arguments="--spring.profiles.active=dev"
 ```
 
-### 3) Run frontend
-
-From `frontend`:
+### 3. Run Frontend
 
 ```bash
+cd frontend
 npm install
 npm start
 ```
 
-### 4) Run ML service
-
-From `ml_fraud-detection/payment-fraud-detection-main`:
+### 4. Run ML Service
 
 ```bash
+cd ml_fraud-detection/payment-fraud-detection-main
 pip install -r requirements.txt
 flask --app app run --host=0.0.0.0 --port=8083
 ```
 
-## Configuration
-
-Main config files:
-
-- `backend/src/main/resources/application.properties`
-- `backend/src/main/resources/application-dev.properties`
-- `backend/src/main/resources/application-docker.properties`
-- `backend/src/main/resources/application-prod.properties`
-- `frontend/src/services/api.js`
-- `frontend/nginx.conf`
-- `docker-compose.yml`
-
-Important settings:
-
-- `spring.sql.init.mode=always` loads `schema.sql` at startup.
-- Docker backend port is `8082`.
-- Docker ML service port is `8083`.
-- Nginx serves the UI on `8081` and proxies `/api`, `/ml`, `/actuator`, and Swagger routes.
-
-## Database Schema and Seed Data
-
-Schema file:
-
-- `backend/src/main/resources/schema.sql`
-
-Core tables:
-
-- `customers`
-- `accounts`
-- `payments`
-- `payment_status_history`
-- `validation_rules`
-- `validation_results`
-- `payment_retry_attempts`
-
-Additional Phase 1 tables:
-
-- `ml_models`
-- `ml_model_predictions`
-- `fraud_audit_events`
-
-The backend seeds validation rules and other bootstrap data during startup when required.
+---
 
 ## API Reference
 
-Base URL: `/api`
+### Payment APIs
 
-Common endpoints:
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/payments` | Create new payment |
+| `GET` | `/api/payments/{id}` | Get payment by ID |
+| `GET` | `/api/payments` | List payments (with filtering & pagination) |
+| `POST` | `/api/payments/{id}/validate` | Transition CREATED → VALIDATED |
+| `POST` | `/api/payments/{id}/send` | Transition VALIDATED → SENT |
+| `POST` | `/api/payments/{id}/complete` | Transition SENT → COMPLETED |
+| `POST` | `/api/payments/{id}/fail` | Manually fail a payment |
 
-```text
-POST   /api/payments                    Create new payment
-GET    /api/payments/{id}               Get payment details
-GET    /api/payments                    List payments with filtering/pagination
-POST   /api/payments/{id}/validate      Validate payment
-POST   /api/payments/{id}/send          Send payment
-POST   /api/payments/{id}/complete      Mark payment complete
-POST   /api/payments/{id}/fail          Mark payment failed
-GET    /api/payments/{id}/audit         Get audit trail
-GET    /api/payments/{id}/history       Get status history
-GET    /api/payments/{id}/validations   Get validation results
+### Audit & History APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/payments/{id}/audit` | Full audit trail |
+| `GET` | `/api/payments/{id}/audit/status-history` | Status transition history |
+| `GET` | `/api/payments/{id}/audit/validations` | Validation results |
+
+### Customer & Account APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/customers` | Create customer (PAN validation) |
+| `GET` | `/api/customers/{id}` | Get customer details |
+| `POST` | `/api/customers/{id}/accounts` | Create bank account |
+| `GET` | `/api/customers/{id}/accounts` | List customer accounts |
+| `GET` | `/api/customers/{id}/profile` | Full customer profile |
+| `GET` | `/api/customers/{id}/profile/risk` | Customer risk information |
+| `GET` | `/api/customers/{id}/statistics` | Payment statistics |
+
+### Bulk Payment APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/bulk-payments/upload` | Upload CSV batch |
+| `GET` | `/api/bulk-payments/{batchId}` | Get batch status |
+| `GET` | `/api/bulk-payments` | List all batches |
+
+### Fraud Admin APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/fraud/pending` | Get pending review queue |
+| `GET` | `/api/admin/fraud/payment/{id}` | Get fraud investigation details |
+| `POST` | `/api/admin/fraud/payment/{id}/approve` | Approve suspicious payment |
+| `POST` | `/api/admin/fraud/payment/{id}/reject` | Reject suspicious payment |
+| `GET` | `/api/admin/fraud/stats` | Fraud statistics |
+
+### Validation Rule Admin APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/admin/validation-rules` | List all rules |
+| `POST` | `/api/admin/validation-rules` | Create new rule |
+| `PUT` | `/api/admin/validation-rules/{id}` | Update rule |
+| `PATCH` | `/api/admin/validation-rules/{id}/toggle` | Toggle rule active/inactive |
+| `POST` | `/api/admin/validation-rules/{id}/test-dry-run` | Test rule without saving |
+
+### Analytics Dashboard APIs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/dashboard/overview` | Platform overview |
+| `GET` | `/api/dashboard/transactions` | Transaction metrics |
+| `GET` | `/api/dashboard/fraud` | Fraud & risk metrics |
+| `GET` | `/api/dashboard/customers` | Customer analytics |
+| `GET` | `/api/dashboard/bulk-payments` | Bulk payment analytics |
+| `GET` | `/api/dashboard/ml` | ML model performance |
+| `GET` | `/api/dashboard/compliance` | Compliance metrics |
+
+### ML Inference API
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/predict-json` | XGBoost fraud probability scoring |
+
+---
+
+## Fraud Detection Engine
+
+### Payment Lifecycle State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> CREATED : Payment Submitted
+    CREATED --> VALIDATED : Rules pass + Fraud APPROVED
+    CREATED --> FAILED : Hard rule fails
+    CREATED --> SUSPICIOUS : Fraud score SUSPICIOUS
+    VALIDATED --> SENT : Sent to gateway
+    VALIDATED --> FAILED : Gateway rejects
+    SENT --> COMPLETED : Settlement success
+    SENT --> FAILED : Settlement fails
+    SUSPICIOUS --> VALIDATED : Admin approves
+    SUSPICIOUS --> FAILED : Admin rejects
+    COMPLETED --> [*]
+    FAILED --> [*]
 ```
 
-Admin and analytics endpoints:
+### Hybrid Scoring Architecture
 
-```text
-GET    /api/admin/validation-rules
-POST   /api/admin/validation-rules
-PUT    /api/admin/validation-rules/{id}
-PATCH  /api/admin/validation-rules/{id}/toggle
-POST   /api/admin/validation-rules/{id}/test-dry-run
-GET    /api/analytics/success-rate
-GET    /api/analytics/status-distribution
-GET    /api/analytics/volume
-GET    /api/analytics/trends
+```mermaid
+flowchart LR
+    P["Payment"] --> RE["Rule Engine<br/>14 Rules"]
+    P --> ML["XGBoost ML<br/>Model"]
+    RE -->|"Score 0-100"| HS["Hybrid Score<br/>rules×0.6 + ml×0.4"]
+    ML -->|"Probability %"| HS
+    HS -->|"< 40"| A["✅ APPROVED"]
+    HS -->|"40-70"| S["⚠️ SUSPICIOUS"]
+    HS -->|"> 70"| R["❌ REJECTED"]
 ```
 
-ML inference endpoint:
+### Fraud Rules
 
-```text
-POST   /predict-json
-```
+| # | Rule | Detection Target |
+|---|------|-----------------|
+| 1 | TransactionVelocityRule | High transaction frequency |
+| 2 | LargeTransactionRule | Unusually large amounts |
+| 3 | ExtremelyLargeTransactionRule | Extreme outlier amounts |
+| 4 | CrossCurrencyRule | Unusual currency conversions |
+| 5 | NewDestinationRule | First-time destination accounts |
+| 6 | UnusualTimePatternRule | Transactions at unusual hours |
+| 7 | AccountDrainRule | Account balance drain patterns |
+| 8 | BehavioralBaselineRule | Deviation from normal behavior |
+| 9 | BehaviorChangeRule | Sudden behavior shifts |
+| 10 | CyclicalTransactionPatternRule | Circular money movement |
+| 11 | VelocityAnomalyRule | Velocity spike detection |
+| 12 | MultipleFailureRule | Repeated failed attempts |
+| 13 | SuspiciousAccountRule | Previously flagged accounts |
+| 14 | ContextualRiskAggregationRule | Cross-rule risk aggregation |
+| 15 | MLFraudRule | XGBoost model inference |
 
-Swagger UI is available through the frontend Nginx route:
-
-```text
-/swagger-ui/index.html
-```
-
-## Frontend Notes
-
-- API helper is in `frontend/src/services/api.js`.
-- The app uses Nginx to proxy API requests to the backend.
-- The frontend routes include dashboard, payments, payment details, create payment, rules management, analytics, customer profile, and fraud dashboard pages.
-- For containerized runs, the frontend should call relative paths like `/api` and `/ml`.
+---
 
 ## Testing
 
-Run backend tests:
+### Run Backend Tests
 
 ```bash
 cd backend
-./mvnw test
+./mvnw test                  # Run all 319 unit tests
+./mvnw verify                # Run tests + generate JaCoCo report
 ```
 
-Build backend artifact:
+### Test Coverage
 
-```bash
-cd backend
-./mvnw clean package -DskipTests
-```
+- **76 test classes** covering controllers, services, fraud rules, validation, scheduling, and exception handling
+- **319 unit tests** — all passing
+- **JaCoCo** code coverage reports generated at `backend/target/site/jacoco/`
 
-Run frontend tests/build:
+### Frontend
 
 ```bash
 cd frontend
-npm test
-npm run build
+npm test                     # Run React component tests
+npm run build                # Build production bundle
 ```
 
-Validate ML service imports/model loading:
+### ML Service Validation
 
 ```bash
 cd ml_fraud-detection/payment-fraud-detection-main
@@ -310,67 +492,157 @@ pip install -r requirements.txt
 python -u -c "import pickle, xgboost, sklearn, numpy, pandas"
 ```
 
-Docker Compose validation:
+---
 
-```bash
-docker compose config -q
+## CI/CD Pipeline
+
+### Jenkins Pipeline
+
+```mermaid
+flowchart LR
+    A["Git Push"] --> B["Checkout"]
+    B --> C["Backend<br/>Build & Test"]
+    B --> D["Frontend<br/>Build & Test"]
+    B --> E["ML<br/>Validation"]
+    C & D & E --> F["Docker Build"]
+    F --> G["Deploy"]
+    G --> H["Verify"]
 ```
 
-## Troubleshooting
+**Pipeline stages** (defined in `Jenkinsfile`):
 
-- **Frontend cannot reach backend:** confirm nginx is proxying `/api` to `backend:8082` and the frontend bundle uses `/api` as the base URL.
-- **CORS errors:** nginx handles preflight and strips the `Origin` header before forwarding to the backend.
-- **Backend connection failed:** ensure the backend is running on `8082` and MySQL is healthy.
-- **ML service errors:** ensure `XGBoostModel.pkl` exists and the ML service is running on `8083`.
-- **Port conflict:** frontend uses `8081`, Jenkins uses `8080`, backend/ML stay internal.
-- **Database schema issues:** confirm `schema.sql` is mounted and MySQL volume is clean if you need a fresh start.
+1. **Checkout Source** — Pull latest code
+2. **Backend Build & Test** — `mvnw test` + `mvnw package`
+3. **Frontend Build & Test** — `npm install` + `npm test` + `npm run build`
+4. **ML Validation** — Install dependencies, verify model loading
+5. **Stop Existing Containers** — `docker-compose down`
+6. **Build Docker Images** — `docker-compose build --no-cache`
+7. **Deploy** — `docker-compose up -d`
+8. **Verify** — Check all containers are running
 
-## CI/CD
-
-### GitHub Actions
-
-Workflow: `.github/workflows/ci.yml`
-
-Pipeline stages:
-
-1. Backend: install dependencies, run tests, build artifact
-2. Frontend: install dependencies, run tests, build production bundle
-3. ML: install dependencies, verify imports, validate model loading
-4. Docker: build images and validate compose configuration
-
-### Jenkins (Linux Server)
-
-`Jenkinsfile` runs the Linux deployment pipeline:
-
-1. Checkout source
-2. Build and test backend/frontend/ML components
-3. Stop existing containers
-4. Build Docker images
-5. Deploy with Docker Compose
-6. Verify running containers
-
-Deployment notes are in `docs/LINUX_JENKINS_DEPLOYMENT.md`.
+---
 
 ## Project Structure
 
-```text
-+--------------------------------------------------+------------------------------------------+
-| Path                                             | Purpose                                  |
-+--------------------------------------------------+------------------------------------------+
-| backend/src/main/java/com/neueda/controller/     | REST endpoints                           |
-| backend/src/main/java/com/neueda/service/        | Business logic                           |
-| backend/src/main/java/com/neueda/repository/     | JDBC repositories                        |
-| backend/src/main/java/com/neueda/domain/         | Domain models                            |
-| backend/src/main/java/com/neueda/fraud/          | ML model registry / fraud logic          |
-| backend/src/main/resources/schema.sql             | DB schema init                           |
-| frontend/src/                                     | React application source                 |
-| frontend/src/services/api.js                      | API client                               |
-| frontend/nginx.conf                               | Nginx reverse proxy                      |
-| ml_fraud-detection/payment-fraud-detection-main/  | Flask ML inference service               |
-| docker-compose.yml                                | Multi-service container orchestration     |
-| backend/Dockerfile                                | Backend container image                  |
-| frontend/Dockerfile                               | Frontend container image                 |
-| Jenkinsfile                                       | Jenkins CI/CD pipeline                   |
-| docs/LINUX_JENKINS_DEPLOYMENT.md                  | Linux VM deployment guide                |
-+--------------------------------------------------+------------------------------------------+
 ```
+108_05_ctrl_pay/
+├── backend/                                    # Spring Boot application
+│   ├── src/main/java/com/neueda/
+│   │   ├── controller/                         # 14 REST controllers
+│   │   │   ├── PaymentController.java
+│   │   │   ├── PaymentLifecycleController.java
+│   │   │   ├── CustomerController.java
+│   │   │   ├── AccountController.java
+│   │   │   ├── BulkPaymentController.java
+│   │   │   ├── FraudAdminController.java
+│   │   │   ├── AnalyticsController.java
+│   │   │   └── ...
+│   │   ├── service/                            # 18 service classes
+│   │   │   ├── PaymentService.java
+│   │   │   ├── PaymentSettlementService.java
+│   │   │   ├── FraudRiskService.java
+│   │   │   ├── CustomerProfileService.java
+│   │   │   ├── AnalyticsService.java
+│   │   │   └── bulk/BulkPaymentService.java
+│   │   ├── domain/                             # 24 domain models (Java Records)
+│   │   ├── dto/                                # Request/Response DTOs
+│   │   ├── fraud/rules/                        # 14 fraud rules + engine
+│   │   ├── validation/rules/                   # 5 validation rule implementations
+│   │   ├── repository/                         # Repository interfaces
+│   │   ├── repository/impl/                    # 14 JDBC repository implementations
+│   │   ├── exception/                          # Custom exceptions + GlobalExceptionHandler
+│   │   └── scheduler/                          # Payment + Bulk processor schedulers
+│   ├── src/main/resources/
+│   │   └── schema.sql                          # Database schema (14 tables + seed data)
+│   └── src/test/java/com/neueda/               # 76 test classes (319 tests)
+│
+├── frontend/                                   # React application
+│   ├── src/
+│   │   ├── pages/                              # 25 page components
+│   │   ├── components/                         # 11 reusable components
+│   │   ├── services/api.js                     # API client (axios)
+│   │   ├── context/                            # Customer + Theme providers
+│   │   └── theme/                              # MUI theme configuration
+│   ├── nginx.conf                              # Reverse proxy configuration
+│   └── Dockerfile                              # Frontend container image
+│
+├── ml_fraud-detection/                         # Python ML service
+│   └── payment-fraud-detection-main/
+│       ├── app.py                              # Flask API (predict, predict-json)
+│       ├── XGBoostModel.pkl                    # Trained XGBoost model
+│       ├── notebook/                           # Training Jupyter notebook
+│       └── Dockerfile                          # ML container image
+│
+├── docs/                                       # Documentation
+│   ├── ARCHITECTURE.md                         # Architecture & design diagrams
+│   ├── LINUX_JENKINS_DEPLOYMENT.md             # VM deployment guide
+│   └── postman/                                # Postman collections
+│
+├── docker-compose.yml                          # Multi-service orchestration
+├── Jenkinsfile                                 # CI/CD pipeline definition
+└── README.md                                   # This file
+```
+
+---
+
+## Configuration
+
+### Configuration Files
+
+| File | Purpose |
+|------|---------|
+| `backend/src/main/resources/application.properties` | Base config |
+| `backend/src/main/resources/application-dev.properties` | Local development |
+| `backend/src/main/resources/application-docker.properties` | Docker environment |
+| `frontend/src/services/api.js` | API base URL configuration |
+| `frontend/nginx.conf` | Nginx reverse proxy rules |
+| `docker-compose.yml` | Service definitions and networking |
+| `.env.example` | Environment variable template |
+
+### Key Settings
+
+- `spring.sql.init.mode=always` — loads `schema.sql` on startup
+- Docker backend: port `8082`, ML service: port `8083`
+- Nginx proxies `/api`, `/ml`, `/actuator`, and Swagger routes
+- MySQL persistent volume: `mysql_data`
+
+---
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| Frontend cannot reach backend | Confirm Nginx is proxying `/api` to `backend:8082` and the React app uses `/api` as base URL |
+| CORS errors | Nginx handles preflight; check `nginx.conf` proxy headers |
+| Backend connection failed | Ensure backend is running on `8082` and MySQL is healthy |
+| ML service errors | Verify `XGBoostModel.pkl` exists and Flask is running on `8083` |
+| Port conflict | Frontend: `8081`, Jenkins: `8080`, Backend/ML stay internal |
+| Database schema issues | Run `docker compose down -v` for a fresh database |
+| Tests failing | Run `./mvnw clean test` from `backend/` directory |
+
+---
+
+## Project Statistics
+
+| Metric | Count |
+|--------|-------|
+| Backend Java classes | 175 |
+| Backend test classes | 76 |
+| Unit tests | 319 (all passing) |
+| REST controllers | 14 |
+| Service classes | 18 |
+| Fraud detection rules | 14 + 1 ML model |
+| Validation rules | 5 (DB-configurable) |
+| Database tables | 14 |
+| React components (JSX) | 38 |
+| Frontend pages | 25 |
+| API endpoints | 50+ |
+| Docker services | 4 |
+
+---
+
+<div align="center">
+
+**Built with ❤️ by the Ctrl-Pay Team @ Neueda Academy — August 2026**
+
+</div>
