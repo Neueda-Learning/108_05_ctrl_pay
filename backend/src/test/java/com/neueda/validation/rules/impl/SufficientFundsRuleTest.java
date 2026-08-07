@@ -50,11 +50,7 @@ class SufficientFundsRuleTest {
     @Test
     @DisplayName("execute: Passes when account balance is sufficient")
     void execute_Pass() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", "111122223333", "444455556666", BigDecimal.valueOf(500), "USD",
-            BigDecimal.valueOf(500), BigDecimal.valueOf(500), BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
-        );
+        PaymentRecord payment = PaymentRecord.create(null, "111122223333", "444455556666", BigDecimal.valueOf(500), "USD");
 
         when(accountService.getAccountByAccountNumber("111122223333")).thenReturn(Optional.of(sampleAccount));
 
@@ -66,11 +62,7 @@ class SufficientFundsRuleTest {
     @Test
     @DisplayName("execute: Fails when account balance is lower than payment amount")
     void execute_InsufficientBalance() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", "111122223333", "444455556666", BigDecimal.valueOf(1500), "USD",
-            BigDecimal.valueOf(1500), BigDecimal.valueOf(1500), BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
-        );
+        PaymentRecord payment = PaymentRecord.create(null, "111122223333", "444455556666", BigDecimal.valueOf(1500), "USD");
 
         when(accountService.getAccountByAccountNumber("111122223333")).thenReturn(Optional.of(sampleAccount));
 

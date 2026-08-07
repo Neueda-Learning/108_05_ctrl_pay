@@ -33,11 +33,7 @@ class AccountFormatRuleTest {
     @Test
     @DisplayName("execute: Passes when both accounts are 12 digits")
     void execute_Pass() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", "111122223333", "444455556666", BigDecimal.TEN, "USD",
-            BigDecimal.TEN, BigDecimal.TEN, BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
-        );
+        PaymentRecord payment = PaymentRecord.create(null, "111122223333", "444455556666", BigDecimal.TEN, "USD");
 
         ValidationRuleResult result = rule.execute(payment, ruleDefinition);
 

@@ -58,11 +58,7 @@ class PaymentServiceTest {
             paymentStatusHistoryRepository, ruleEngine, fraudDetectionService, fraudAssessmentRepository
         );
 
-        newPayment = new PaymentRecord(
-            null, "IDEM123", "111122223333", "444455556666", BigDecimal.valueOf(100), "USD",
-            BigDecimal.valueOf(100), BigDecimal.valueOf(100), BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
-        );
+        newPayment = PaymentRecord.create(null, "111122223333", "444455556666", BigDecimal.valueOf(100), "USD");
 
         savedPayment = new PaymentRecord(
             1L, "IDEM123", "111122223333", "444455556666", BigDecimal.valueOf(100), "USD",
@@ -79,9 +75,10 @@ class PaymentServiceTest {
     @Test
     @DisplayName("createPayment: Idempotent - returns existing payment if idempotency key exists")
     void createPayment_Idempotency() {
+        PaymentRecord paymentWithKey = PaymentRecord.create("IDEM123", "111122223333", "444455556666", BigDecimal.valueOf(100), "USD");
         when(paymentRepository.findByIdempotencyKey("IDEM123")).thenReturn(Optional.of(savedPayment));
 
-        PaymentRecord result = paymentService.createPayment(newPayment);
+        PaymentRecord result = paymentService.createPayment(paymentWithKey);
 
         assertThat(result.id()).isEqualTo(1L);
         verify(paymentRepository, never()).save(any());
@@ -90,7 +87,6 @@ class PaymentServiceTest {
     @Test
     @DisplayName("createPayment: Happy path - validates rules, passes fraud check, transitions to VALIDATED")
     void createPayment_Success() {
-        when(paymentRepository.findByIdempotencyKey("IDEM123")).thenReturn(Optional.empty());
         List<ValidationRuleRecord> rules = List.of();
         when(validationRuleRepository.findActiveRules()).thenReturn(rules);
         List<ValidationResultRecord> results = List.of();
@@ -115,7 +111,6 @@ class PaymentServiceTest {
             "[]", "{}", FraudDecision.SUSPICIOUS, FraudRiskLevel.HIGH, "High velocity"
         );
 
-        when(paymentRepository.findByIdempotencyKey("IDEM123")).thenReturn(Optional.empty());
         when(validationRuleRepository.findActiveRules()).thenReturn(List.of());
         when(ruleEngine.validatePayment(any(), any())).thenReturn(List.of());
         when(ruleEngine.hasPassedValidation(any(), any())).thenReturn(true);
@@ -132,7 +127,6 @@ class PaymentServiceTest {
     @Test
     @DisplayName("createPayment: Hard rule validation failure sets status to FAILED")
     void createPayment_ValidationFailure() {
-        when(paymentRepository.findByIdempotencyKey("IDEM123")).thenReturn(Optional.empty());
         when(validationRuleRepository.findActiveRules()).thenReturn(List.of());
         when(ruleEngine.validatePayment(any(), any())).thenReturn(List.of());
         when(ruleEngine.hasPassedValidation(any(), any())).thenReturn(false);

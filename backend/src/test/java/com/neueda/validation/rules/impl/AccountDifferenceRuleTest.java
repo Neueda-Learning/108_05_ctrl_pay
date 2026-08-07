@@ -32,10 +32,8 @@ class AccountDifferenceRuleTest {
     @Test
     @DisplayName("execute: Passes when source and destination accounts differ")
     void execute_Pass() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", "111122223333", "444455556666", BigDecimal.TEN, "USD",
-            BigDecimal.TEN, BigDecimal.TEN, BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
+        PaymentRecord payment = PaymentRecord.create(
+            null, "111122223333", "444455556666", BigDecimal.TEN, "USD"
         );
 
         ValidationRuleResult result = rule.execute(payment, ruleDefinition);
@@ -46,10 +44,8 @@ class AccountDifferenceRuleTest {
     @Test
     @DisplayName("execute: Fails when source and destination accounts are identical")
     void execute_SameAccounts() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", "111122223333", "111122223333", BigDecimal.TEN, "USD",
-            BigDecimal.TEN, BigDecimal.TEN, BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
+        PaymentRecord payment = PaymentRecord.create(
+            null, "111122223333", "111122223333", BigDecimal.TEN, "USD"
         );
 
         ValidationRuleResult result = rule.execute(payment, ruleDefinition);
@@ -62,10 +58,8 @@ class AccountDifferenceRuleTest {
     @Test
     @DisplayName("execute: Fails when source or destination account is null")
     void execute_NullAccount() {
-        PaymentRecord payment = new PaymentRecord(
-            1L, "K", null, "444455556666", BigDecimal.TEN, "USD",
-            BigDecimal.TEN, BigDecimal.TEN, BigDecimal.ONE, PaymentStatus.CREATED,
-            null, null, 0, 3, null, null, null, LocalDateTime.now(), LocalDateTime.now()
+        PaymentRecord payment = PaymentRecord.create(
+            null, null, "444455556666", BigDecimal.TEN, "USD"
         );
 
         ValidationRuleResult result = rule.execute(payment, ruleDefinition);
