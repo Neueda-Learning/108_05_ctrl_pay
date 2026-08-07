@@ -271,7 +271,7 @@ docker compose down -v       # Stop + remove volumes (fresh DB)
 After deployment to the Linux VM:
 
 ```
-VM IP: 10.9.72.215
+VM IP: 10.9.64.156
 ```
 
 | Resource | URL |
