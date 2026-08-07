@@ -276,9 +276,9 @@ VM IP: 10.9.72.215
 
 | Resource | URL |
 |----------|-----|
-| Frontend | `http://10.9.72.215:8081` |
-| Swagger UI | `http://10.9.72.215:8081/swagger-ui/index.html` |
-| Jenkins | `http://10.9.72.215:8080` |
+| Frontend | `http://10.9.64.156:8081` |
+| Swagger UI | `http://10.9.64.156:8081/swagger-ui/index.html` |
+| Jenkins | `http://10.9.64.156:8080` |
 
 ---
 
