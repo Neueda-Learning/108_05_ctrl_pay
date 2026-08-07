@@ -60,8 +60,8 @@ function AppShell() {
             <Route path="/dashboard/overview" element={<PlatformOverviewDashboard />} />
             <Route path="/dashboard/transactions" element={<TransactionDashboard />} />
             <Route path="/dashboard/fraud" element={<FraudAnalyticsDashboard />} />
-            <Route path="/dashboard/customers" element={<CustomerAnalyticsDashboard />} />
-{/*             <Route path="/dashboard/bulk-payments" element={<BulkPaymentDashboard />} /> */}
+            {/*<Route path="/dashboard/customers" element={<CustomerAnalyticsDashboard />} />*/}
+            <Route path="/dashboard/bulk-payments" element={<BulkPaymentDashboard />} />
             <Route path="/dashboard/ml" element={<MLModelDashboard />} />
 {/*             <Route path="/dashboard/compliance" element={<ComplianceDashboard />} /> */}
 
